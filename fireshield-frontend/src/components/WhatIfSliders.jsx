@@ -6,7 +6,7 @@ const PRESETS = [
   { name: "Monsoon Wet", wind_speed: 10, wind_direction: 45, humidity: 82 },
 ];
 
-export default function WhatIfSliders({ values: externalValues, onChange, addLog }) {
+export default function WhatIfSliders({ values: externalValues, onChange, addLog, usingLiveWeather, onUseLiveWeather }) {
   const [values, setValues] = useState(externalValues);
 
   // Sync with external updates (presets, initialization)
@@ -50,14 +50,26 @@ export default function WhatIfSliders({ values: externalValues, onChange, addLog
     <section className="command-card p-6">
       <div className="flex flex-col gap-3 border-b border-gray-100 pb-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-blue-600">
+          <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-blue-600 flex items-center gap-2">
             Scenario Controls
+            {usingLiveWeather ? (
+              <span className="rounded bg-green-100 px-1.5 py-0.5 text-[9px] font-bold text-green-700 tracking-wider">LIVE</span>
+            ) : (
+              <span className="rounded bg-gray-200 px-1.5 py-0.5 text-[9px] font-bold text-gray-600 tracking-wider">MANUAL</span>
+            )}
           </h2>
           <p className="mt-1 text-xs text-gray-500 font-medium">
-            Test spread speed by moving sliders or launching a preset scenario.
+            Test spread speed by moving sliders, launching a preset, or using live data.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <button
+            onClick={onUseLiveWeather}
+            className="rounded-lg border border-green-200 bg-green-50 px-2.5 py-1 text-[10px] font-bold text-green-700 hover:bg-green-100 transition-all shadow-sm"
+            type="button"
+          >
+            Use Live Weather
+          </button>
           {PRESETS.map((preset) => (
             <button
               key={preset.name}
@@ -76,7 +88,7 @@ export default function WhatIfSliders({ values: externalValues, onChange, addLog
           <span className="mb-2 block text-gray-700 font-bold">Wind Speed</span>
           <input
             className="w-full accent-blue-600 cursor-pointer"
-            max="100"
+            max="80"
             min="0"
             onChange={(event) => updateValue("wind_speed", event.target.value)}
             type="range"

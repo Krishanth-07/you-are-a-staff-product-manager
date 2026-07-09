@@ -5,12 +5,15 @@ import { getIncidentCommander } from "../api";
 export default function IncidentCommanderPanel({
   simulation,
   regionData,
+  ensembleData,
   onRecommendation,
   recommendation,
   addLog,
 }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showAllResources, setShowAllResources] = useState(false);
+  const [showAllEvacs, setShowAllEvacs] = useState(false);
 
   const requestRecommendation = async () => {
     if (!simulation) return;
@@ -24,6 +27,8 @@ export default function IncidentCommanderPanel({
         points_of_interest: regionData?.points_of_interest || [],
         ignition_x: simulation.ignition_x ?? 25,
         ignition_y: simulation.ignition_y ?? 25,
+        ensemble_confidence: ensembleData?.mean_confidence_percent ?? null,
+        high_confidence_cells: ensembleData?.high_confidence_cells ?? null,
       });
       onRecommendation?.(response);
       addLog?.("Incident commander recommendation generated");
@@ -87,6 +92,38 @@ export default function IncidentCommanderPanel({
 
       {recommendation && (
         <div className="mt-5 space-y-4 text-xs text-gray-800">
+        
+          {/* Confidence and Containment Metrics (Moved to Top) */}
+          <div className="grid gap-4 md:grid-cols-2 bg-white p-4 rounded-lg border border-gray-200 shadow-sm mb-2">
+            <div>
+              <div className="mb-1.5 flex justify-between text-[11px] font-bold text-gray-600">
+                <span>Confidence Metric</span>
+                <span className="mono">{recommendation.confidence_percent}%</span>
+              </div>
+              <div className="h-1.5 rounded-full bg-gray-100">
+                <div
+                  className="h-1.5 rounded-full bg-blue-600 transition-all duration-500"
+                  style={{ width: `${recommendation.confidence_percent}%` }}
+                />
+              </div>
+              <div className="mt-1.5 text-[9px] text-gray-400 font-medium">
+                {ensembleData ? `Derived from ${ensembleData.n_runs}-run simulation ensemble` : "AI-estimated confidence"}
+              </div>
+            </div>
+            <div>
+              <div className="mb-1.5 flex justify-between text-[11px] font-bold text-gray-600">
+                <span>Containment Estimate</span>
+                <span className="mono">{recommendation.containment_estimate_percent}%</span>
+              </div>
+              <div className="h-1.5 rounded-full bg-gray-100">
+                <div
+                  className="h-1.5 rounded-full bg-amber-500 transition-all duration-500"
+                  style={{ width: `${recommendation.containment_estimate_percent}%` }}
+                />
+              </div>
+            </div>
+          </div>
+
           <div className="grid gap-4 md:grid-cols-2">
             {/* Evacuation Section */}
             <div className="border-l-4 border-red-600 bg-white p-3.5 rounded-r-lg border border-y-gray-200 border-r-gray-200 shadow-sm">
@@ -94,7 +131,7 @@ export default function IncidentCommanderPanel({
                 Evacuation Strategy
               </div>
               <div className="mt-2 space-y-2.5">
-                {recommendation.evacuate.map((item) => (
+                {(showAllEvacs ? recommendation.evacuate : recommendation.evacuate.slice(0, 3)).map((item) => (
                   <div key={item.location}>
                     <div className="font-bold text-gray-900">{item.location}</div>
                     <div className="text-[11px] text-gray-500 leading-normal mt-0.5">
@@ -103,6 +140,14 @@ export default function IncidentCommanderPanel({
                   </div>
                 ))}
               </div>
+              {recommendation.evacuate.length > 3 && (
+                <button 
+                  className="mt-3 text-[10px] font-bold text-red-600 hover:text-red-800"
+                  onClick={() => setShowAllEvacs(!showAllEvacs)}
+                >
+                  {showAllEvacs ? "Show less" : `Show all ${recommendation.evacuate.length} locations`}
+                </button>
+              )}
             </div>
 
             {/* Resources Section */}
@@ -111,7 +156,7 @@ export default function IncidentCommanderPanel({
                 Resources Allocation
               </div>
               <div className="mt-2 space-y-2.5">
-                {recommendation.deploy_resources.map((item, index) => (
+                {(showAllResources ? recommendation.deploy_resources : recommendation.resource_allocation_top5).map((item, index) => (
                   <div key={`${item.type}-${index}`}>
                     <div className="font-bold text-gray-900 flex justify-between">
                       <span>{item.count} {item.type}</span>
@@ -126,6 +171,14 @@ export default function IncidentCommanderPanel({
                   </div>
                 ))}
               </div>
+              {recommendation.deploy_resources.length > 5 && (
+                <button 
+                  className="mt-3 text-[10px] font-bold text-blue-600 hover:text-blue-800"
+                  onClick={() => setShowAllResources(!showAllResources)}
+                >
+                  {showAllResources ? "Show less" : `Show all ${recommendation.deploy_resources.length} allocations`}
+                </button>
+              )}
             </div>
           </div>
 
@@ -161,35 +214,6 @@ export default function IncidentCommanderPanel({
             </div>
           </div>
 
-          {/* Confidence and Containment Metrics */}
-          <div className="grid gap-4 md:grid-cols-2 pt-2">
-            <div>
-              <div className="mb-1.5 flex justify-between text-[11px] font-bold text-gray-600">
-                <span>Confidence Metric</span>
-                <span className="mono">{recommendation.confidence_percent}%</span>
-              </div>
-              <div className="h-1.5 rounded-full bg-gray-100">
-                <div
-                  className="h-1.5 rounded-full bg-blue-600 transition-all duration-500"
-                  style={{ width: `${recommendation.confidence_percent}%` }}
-                />
-              </div>
-            </div>
-            <div>
-              <div className="mb-1.5 flex justify-between text-[11px] font-bold text-gray-600">
-                <span>Containment Estimate</span>
-                <span className="mono">{recommendation.containment_estimate_percent}%</span>
-              </div>
-              <div className="h-1.5 rounded-full bg-gray-100">
-                <div
-                  className="h-1.5 rounded-full bg-amber-500 transition-all duration-500"
-                  style={{
-                    width: `${recommendation.containment_estimate_percent}%`,
-                  }}
-                />
-              </div>
-            </div>
-          </div>
         </div>
       )}
 

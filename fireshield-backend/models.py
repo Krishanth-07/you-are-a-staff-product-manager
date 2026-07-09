@@ -63,11 +63,14 @@ class IncidentCommanderRequest(BaseModel):
     points_of_interest: list[dict]
     ignition_x: int
     ignition_y: int
+    ensemble_confidence: int | None = None
+    high_confidence_cells: int | None = None
 
 
 class IncidentCommanderResponse(BaseModel):
     evacuate: list[dict]
     deploy_resources: list[dict]
+    resource_allocation_top5: list[dict] = []
     road_closures: list[str]
     priority_protect: list[dict]
     confidence_percent: int

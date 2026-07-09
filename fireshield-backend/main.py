@@ -104,8 +104,15 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+weather_cache = {"data": None, "timestamp": 0.0}
+
 @app.get("/api/weather")
 def get_live_weather():
+    global weather_cache
+    
+    # Cache for 5 minutes (300 seconds)
+    if weather_cache["data"] is not None and (time.time() - weather_cache["timestamp"] < 300):
+        return weather_cache["data"]
     # Kotagiri coordinates
     lat = 11.4227
     lng = 76.8631
@@ -115,12 +122,20 @@ def get_live_weather():
         with urllib.request.urlopen(req, timeout=10) as response:
             data = json.loads(response.read().decode("utf-8"))
             current = data.get("current", {})
-            return {
+            result = {
                 "wind_speed": current.get("wind_speed_10m", 15.0), # km/h
                 "wind_direction": current.get("wind_direction_10m", 90.0), # degrees
                 "humidity": current.get("relative_humidity_2m", 60.0) # percentage
             }
+            weather_cache["data"] = result
+            weather_cache["timestamp"] = time.time()
+            return result
     except Exception as e:
+        if weather_cache["data"] is not None:
+            stale_result = dict(weather_cache["data"])
+            stale_result["stale"] = True
+            stale_result["cached_at"] = weather_cache["timestamp"]
+            return stale_result
         return {"error": str(e)}
 
 # Cache for FIRMS data (dict of "data" and "timestamp")
@@ -304,6 +319,15 @@ def incident_commander(
             
         allocation = allocate_resources(enriched_pois, resource_bases)
         
+        threat_order = {"Critical": 0, "High": 1, "Low": 2}
+        poi_threats = {p["name"]: p["threat_level"] for p in enriched_pois}
+        
+        sorted_allocations = sorted(
+            allocation,
+            key=lambda x: (threat_order.get(poi_threats.get(x["poi"], "Low"), 3), x.get("eta_minutes", 999))
+        )
+        allocation_top5 = sorted_allocations[:5]
+        
         recommendation = get_incident_commander_recommendation(
             request.risk_score,
             request.risk_factors,
@@ -311,9 +335,11 @@ def incident_commander(
             request.points_of_interest,
             request.ignition_x,
             request.ignition_y,
-            mean_confidence_percent=75, # Fallback, ideally we'd pass this from frontend but signature assumes 75 if not provided
+            ensemble_confidence=request.ensemble_confidence,
+            high_confidence_cells=request.high_confidence_cells,
             resource_allocation=allocation
         )
+        recommendation["resource_allocation_top5"] = allocation_top5
         return IncidentCommanderResponse(**recommendation)
     except RuntimeError as e:
         raise HTTPException(status_code=503, detail=str(e))

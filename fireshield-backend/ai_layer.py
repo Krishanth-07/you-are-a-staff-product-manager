@@ -73,7 +73,8 @@ def get_incident_commander_recommendation(
     points_of_interest: list[dict],
     ignition_x: int,
     ignition_y: int,
-    mean_confidence_percent: int = 75,
+    ensemble_confidence: int | None = None,
+    high_confidence_cells: int | None = None,
     resource_allocation: list[dict] = None,
 ) -> dict:
     import math
@@ -106,8 +107,14 @@ def get_incident_commander_recommendation(
         "use these exact bases, unit counts, and ETAs in your `deploy_resources` field; do not invent different ones. "
         "Do not invent locations not present in the points_of_interest list. Avoid generic "
         "boilerplate phrases. Cite the specific distance in meters and threat level of the villages "
-        "or hospitals in your reasoning fields to demonstrate real spatial awareness."
+        "or hospitals in your reasoning fields to demonstrate real spatial awareness. "
     )
+    
+    if ensemble_confidence is not None:
+        system_prompt += f"You MUST use the provided ensemble_confidence_percent ({ensemble_confidence}%) as the exact value for the `confidence_percent` field in your JSON output. Do not invent a different confidence number."
+    else:
+        system_prompt += "Estimate the `confidence_percent` field based on the risk factors provided."
+        
     user_message = f"""
 Incident data:
 - risk_score: {risk_score}
@@ -117,7 +124,8 @@ Incident data:
 - ignition_y: {ignition_y}
 - points_of_interest (enriched with distances & threat levels relative to ignition): {json.dumps(enriched_pois, indent=2)}
 - Computed resource_allocation: {json.dumps(resource_allocation or [], indent=2)}
-- Computed mean_confidence_percent (from Monte Carlo Ensemble): {mean_confidence_percent}
+{f"- ensemble_confidence_percent: {ensemble_confidence} (derived from multiple simulation runs)" if ensemble_confidence is not None else ""}
+{f"- high_confidence_cells: {high_confidence_cells}" if high_confidence_cells is not None else ""}
 
 Return a JSON response matching this exact schema:
 {{
@@ -125,7 +133,7 @@ Return a JSON response matching this exact schema:
   "deploy_resources": [{{"type": "<type from resource_allocation>", "count": <int from resource_allocation>, "from": "<base from resource_allocation>", "to": "<poi from resource_allocation>", "eta_minutes": <int from resource_allocation>}}],
   "road_closures": ["<string citing specific highway or road name>"],
   "priority_protect": [{{"location": "<name>", "reason": "<string citing specific distance and risk factor>"}}],
-  "confidence_percent": {mean_confidence_percent},
+  "confidence_percent": {ensemble_confidence if ensemble_confidence is not None else "<int 0-100>"},
   "cascading_risks": ["<string>", "<string>"],
   "containment_estimate_percent": <int 0-100>
 }}

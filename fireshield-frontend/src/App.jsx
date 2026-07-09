@@ -26,6 +26,7 @@ export default function App() {
   const [simulation, setSimulation] = useState(null);
   const [regionData, setRegionData] = useState(null);
   const [recommendation, setRecommendation] = useState(null);
+  const [ensembleData, setEnsembleData] = useState(null);
   const [sliderParams, setSliderParams] = useState(DEFAULT_SCENARIO);
   const [logs, setLogs] = useState([]);
   const [pageView, setPageView] = useState("map"); // "map", "plan", "alerts", "report"
@@ -45,26 +46,40 @@ export default function App() {
     setSimulation(nextSimulation);
     if (nextRegion) setRegionData(nextRegion);
   }, []);
+  
+  const handleEnsembleUpdate = useCallback((nextEnsemble) => {
+    setEnsembleData(nextEnsemble);
+  }, []);
+
+  const [usingLiveWeather, setUsingLiveWeather] = useState(false);
+
+  const loadLiveWeather = useCallback(async () => {
+    try {
+      const weather = await getLiveWeather();
+      if (weather.error) throw new Error(weather.error);
+      
+      setSliderParams((prev) => ({
+        ...prev,
+        wind_speed: Math.round(weather.wind_speed),
+        wind_direction: Math.round(weather.wind_direction),
+        humidity: Math.round(weather.humidity),
+      }));
+      setUsingLiveWeather(!weather.stale);
+      
+      if (weather.stale) {
+        addLog(`Live weather unavailable — using manual controls / cached data.`);
+      } else {
+        addLog(`Live weather initialized: Wind ${Math.round(weather.wind_speed)}km/h, Hum ${Math.round(weather.humidity)}%`);
+      }
+    } catch (e) {
+      setUsingLiveWeather(false);
+      addLog("Live weather unavailable — using manual controls.");
+    }
+  }, [addLog]);
 
   useEffect(() => {
-    async function loadLiveWeather() {
-      try {
-        const weather = await getLiveWeather();
-        if (weather.error) throw new Error(weather.error);
-        
-        setSliderParams((prev) => ({
-          ...prev,
-          wind_speed: Math.round(weather.wind_speed),
-          wind_direction: Math.round(weather.wind_direction),
-          humidity: Math.round(weather.humidity),
-        }));
-        addLog(`Live weather initialized: Wind ${Math.round(weather.wind_speed)}km/h, Hum ${Math.round(weather.humidity)}%`);
-      } catch (e) {
-        addLog("Failed to fetch live weather. Using defaults.");
-      }
-    }
     loadLiveWeather();
-  }, [addLog]);
+  }, [loadLiveWeather]);
 
   const summary = useMemo(() => {
     const riskScore = simulation?.final_risk_score ?? null;
@@ -236,11 +251,17 @@ export default function App() {
                 addLog={addLog}
                 externalParams={sliderParams}
                 onSimulationUpdate={handleSimulationUpdate}
+                onEnsembleUpdate={handleEnsembleUpdate}
               />
               <WhatIfSliders
                 values={sliderParams}
-                onChange={setSliderParams}
+                onChange={(newVals) => {
+                  setSliderParams(newVals);
+                  setUsingLiveWeather(false);
+                }}
                 addLog={addLog}
+                usingLiveWeather={usingLiveWeather}
+                onUseLiveWeather={loadLiveWeather}
               />
             </div>
           )}
@@ -258,6 +279,7 @@ export default function App() {
                 recommendation={recommendation}
                 regionData={regionData}
                 simulation={simulation}
+                ensembleData={ensembleData}
               />
             </div>
           )}

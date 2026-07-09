@@ -103,6 +103,7 @@ function ignitionIcon() {
 export default function FireMap({
   externalParams,
   onSimulationUpdate,
+  onEnsembleUpdate,
   addLog,
 }) {
   const [regionData, setRegionData] = useState(null);
@@ -111,6 +112,7 @@ export default function FireMap({
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [loadingFirms, setLoadingFirms] = useState(false);
 
   const [showFirms, setShowFirms] = useState(false);
   const [firmsData, setFirmsData] = useState([]);
@@ -215,6 +217,7 @@ export default function FireMap({
     try {
       const data = await simulateEnsemble(params);
       setEnsembleData(data);
+      onEnsembleUpdate?.(data);
       setShowEnsemble(true);
       addLog?.(`Monte Carlo Ensemble ran with ${data.n_runs} permutations. Mean confidence: ${data.mean_confidence_percent}%`);
     } catch (err) {
@@ -229,6 +232,7 @@ export default function FireMap({
       setShowFirms(false);
       return;
     }
+    setLoadingFirms(true);
     try {
       const data = await getActiveFires();
       if (data.error) {
@@ -239,6 +243,8 @@ export default function FireMap({
       }
     } catch (err) {
       console.error(err);
+    } finally {
+      setLoadingFirms(false);
     }
   };
 
@@ -259,8 +265,9 @@ export default function FireMap({
                 className={`rounded-lg border px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider shadow-sm transition-all ${showFirms ? 'bg-orange-600 text-white border-orange-600' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}
                 onClick={handleToggleFirms}
                 type="button"
+                disabled={loadingFirms}
               >
-                Live Satellite Hotspots
+                {loadingFirms ? "Loading..." : "Live Satellite Hotspots"}
               </button>
               
               <button
