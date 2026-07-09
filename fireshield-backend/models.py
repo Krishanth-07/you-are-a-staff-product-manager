@@ -18,6 +18,22 @@ class RiskFactors(BaseModel):
     nearby_settlements: bool
 
 
+class PoiThreatTime(BaseModel):
+    name: str
+    type: str
+    lat: float
+    lng: float
+    threat_step: int | None = None  # which time step fire reaches it (None = safe)
+    minutes_to_reach: float | None = None  # estimated real-world minutes
+    threat_level: str  # "Critical", "High", "Low", "Safe"
+
+
+class EvacuationRoute(BaseModel):
+    poi_name: str
+    urgency: str  # "critical", "high", "safe"
+    path: list[list[float]]  # list of [lat, lng] waypoints
+
+
 class SimulateResponse(BaseModel):
     grid_size: int
     time_steps_data: list[list[list[list[float]]]]  # List of time steps -> List of polygons -> List of points -> [lat, lng]
@@ -26,6 +42,8 @@ class SimulateResponse(BaseModel):
     total_cells_burnt: int
     ignition_x: int
     ignition_y: int
+    poi_threat_timeline: list[PoiThreatTime] = []
+    evacuation_routes: list[EvacuationRoute] = []
 
 
 class EnsembleRequest(SimulateRequest):

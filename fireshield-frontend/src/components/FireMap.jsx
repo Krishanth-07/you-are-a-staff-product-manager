@@ -8,6 +8,7 @@ import {
   useMap,
   useMapEvents,
   Polygon,
+  Polyline,
   Rectangle,
 } from "react-leaflet";
 import { getRegionData, simulate, simulateEnsemble, getActiveFires } from "../api";
@@ -117,6 +118,12 @@ export default function FireMap({
   const [ensembleData, setEnsembleData] = useState(null);
   const [loadingEnsemble, setLoadingEnsemble] = useState(false);
 
+  const [showEvacRoutes, setShowEvacRoutes] = useState(true);
+  const [showCompare, setShowCompare] = useState(false);
+  const [compareData, setCompareData] = useState(null);
+  const [loadingCompare, setLoadingCompare] = useState(false);
+  const [comparePoly, setComparePoly] = useState([]);
+  
   const [ignitionX, setIgnitionX] = useState(DEFAULT_PARAMS.ignition_x);
   const [ignitionY, setIgnitionY] = useState(DEFAULT_PARAMS.ignition_y);
 
@@ -240,6 +247,30 @@ export default function FireMap({
     }
   };
 
+  const handleCompareScenario = async () => {
+    if (showCompare) {
+      setShowCompare(false);
+      setCompareData(null);
+      setComparePoly([]);
+      return;
+    }
+    setLoadingCompare(true);
+    try {
+      // Worst case: double wind speed, 15% humidity
+      const worstCase = { ...params, wind_speed: Math.min(params.wind_speed * 2.5, 80), humidity: 15 };
+      const data = await simulate(worstCase);
+      setCompareData(data);
+      const lastStep = data.time_steps_data?.[data.time_steps_data.length - 1] || [];
+      setComparePoly(lastStep);
+      setShowCompare(true);
+      addLog?.(`Scenario Compare: Worst-case (wind ${Math.round(worstCase.wind_speed)} km/h, humidity 15%) loaded.`);
+    } catch (err) {
+      console.error('Compare error', err);
+    } finally {
+      setLoadingCompare(false);
+    }
+  };
+
   return (
     <section className="command-card p-6">
       <div className="flex flex-col gap-4">
@@ -268,6 +299,23 @@ export default function FireMap({
                 disabled={loadingEnsemble}
               >
                 {loadingEnsemble ? "Running..." : "Run Confidence Analysis"}
+              </button>
+
+              <button
+                className={`rounded-lg border px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider shadow-sm transition-all ${showCompare ? 'bg-amber-600 text-white border-amber-600' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}
+                onClick={handleCompareScenario}
+                type="button"
+                disabled={loadingCompare}
+              >
+                {loadingCompare ? "Loading..." : "⚡ Compare Worst-Case"}
+              </button>
+
+              <button
+                className={`rounded-lg border px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider shadow-sm transition-all ${showEvacRoutes ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}
+                onClick={() => setShowEvacRoutes(v => !v)}
+                type="button"
+              >
+                🚨 Evac Routes
               </button>
 
             <label className="flex items-center gap-3 text-xs text-gray-500">
@@ -390,6 +438,48 @@ export default function FireMap({
               </Marker>
             ))}
             
+            {/* Evacuation routes - animated dashed polylines */}
+            {showEvacRoutes && simulationData?.evacuation_routes?.map((route) => {
+              const color = route.urgency === 'critical' ? '#16a34a' : route.urgency === 'high' ? '#65a30d' : '#84cc16';
+              return (
+                <Polyline
+                  key={`evac-${route.poi_name}`}
+                  positions={route.path}
+                  pathOptions={{
+                    color,
+                    weight: 3,
+                    dashArray: '10, 8',
+                    dashOffset: '0',
+                    opacity: 0.9,
+                    className: 'evac-route-line',
+                  }}
+                >
+                  <Popup>
+                    <div className="text-xs">
+                      <strong>🚨 Evacuation Route</strong><br/>
+                      From: {route.poi_name}<br/>
+                      Priority: {route.urgency.toUpperCase()}
+                    </div>
+                  </Popup>
+                </Polyline>
+              );
+            })}
+
+            {/* Scenario Compare - worst-case fire polygon in amber */}
+            {showCompare && comparePoly.map((poly, i) => (
+              <Polygon
+                key={`compare-${i}`}
+                positions={poly}
+                pathOptions={{
+                  color: '#f59e0b',
+                  fillColor: '#f59e0b',
+                  fillOpacity: 0.25,
+                  weight: 2.5,
+                  dashArray: '6, 4',
+                }}
+              />
+            ))}
+
             <Marker icon={ignitionIcon()} position={ignitionPosition}>
               <Popup>
                 <div className="text-xs text-gray-800">
@@ -424,10 +514,54 @@ export default function FireMap({
           </MapContainer>
         </div>
 
+        {/* POI Threat Timeline Ticker */}
+        {simulationData?.poi_threat_timeline?.length > 0 && (
+          <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+            <div className="px-4 py-2 border-b border-gray-100 flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500">⏱ Impact Timeline — Fire Arrival Forecast</span>
+              {showCompare && (
+                <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">⚡ Amber = Worst-case scenario active</span>
+              )}
+            </div>
+            <div className="flex overflow-x-auto gap-0 divide-x divide-gray-100">
+              {simulationData.poi_threat_timeline.map((poi) => {
+                const colors = {
+                  Critical: { bg: 'bg-red-50', badge: 'bg-red-600', text: 'text-red-700', border: 'border-red-200' },
+                  High:     { bg: 'bg-orange-50', badge: 'bg-orange-500', text: 'text-orange-700', border: 'border-orange-200' },
+                  Low:      { bg: 'bg-yellow-50', badge: 'bg-yellow-500', text: 'text-yellow-700', border: 'border-yellow-200' },
+                  Safe:     { bg: 'bg-green-50', badge: 'bg-green-600', text: 'text-green-700', border: 'border-green-200' },
+                };
+                const c = colors[poi.threat_level] || colors.Safe;
+                return (
+                  <div key={poi.name} className={`flex-shrink-0 px-4 py-3 min-w-[140px] ${c.bg}`}>
+                    <div className={`text-[9px] font-bold uppercase tracking-widest ${c.text} mb-1 flex items-center gap-1`}>
+                      <span className={`inline-block h-1.5 w-1.5 rounded-full ${c.badge}`}/>
+                      {poi.threat_level}
+                    </div>
+                    <div className="text-[11px] font-bold text-gray-900 leading-tight">{poi.name}</div>
+                    <div className="text-[10px] text-gray-500 mt-0.5 capitalize">{poi.type}</div>
+                    <div className={`mt-2 text-[13px] font-black ${c.text}`}>
+                      {poi.minutes_to_reach != null ? `~${poi.minutes_to_reach} min` : '✓ Safe'}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <div className="flex flex-wrap items-center justify-center gap-5 text-xs text-gray-500 border-t border-gray-100 pt-3">
           <span className="flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-full bg-[#ef4444]" />
             Actively Burning Area
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="h-2 w-3 rounded-sm border-2 border-dashed border-amber-500" />
+            Worst-Case Scenario
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="h-0.5 w-5 border-t-2 border-dashed border-green-600" />
+            Evacuation Route
           </span>
           <span className="flex items-center gap-1.5 text-blue-600 font-medium">
             Carto Voyager Tiles
