@@ -50,7 +50,13 @@ from region_data import (
     get_points_of_interest,
     get_bounds,
 )
-from simulation import calculate_risk_score, run_cellular_automaton, grid_to_polygons, run_ensemble
+from simulation import (
+    run_cellular_automaton,
+    run_ensemble,
+    calculate_risk_score,
+    grid_to_polygons,
+    extract_confidence_contours
+)
 from resource_allocation import allocate_resources
 
 
@@ -257,10 +263,13 @@ def simulate_ensemble(request: EnsembleRequest) -> EnsembleResponse:
         mean_confidence = 0
         
     high_confidence_cells = int(np.sum(prob_grid > 0.7))
+    
+    contours = extract_confidence_contours(prob_grid, get_bounds())
 
     return EnsembleResponse(
         grid_size=GRID_SIZE,
         probability_grid=prob_grid.tolist(),
+        contours=contours,
         mean_confidence_percent=mean_confidence,
         high_confidence_cells=high_confidence_cells,
         n_runs=request.n_runs,

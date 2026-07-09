@@ -35,6 +35,7 @@ class EnsembleRequest(SimulateRequest):
 class EnsembleResponse(BaseModel):
     grid_size: int
     probability_grid: list[list[float]]
+    contours: dict[str, list[list[list[float]]]]  # dict of "25", "50", "75" -> list of polygons -> list of points -> [lat, lng]
     mean_confidence_percent: int
     high_confidence_cells: int
     n_runs: int

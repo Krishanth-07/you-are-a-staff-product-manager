@@ -172,6 +172,29 @@ def run_cellular_automaton(
     return snapshots
 
 
+def extract_confidence_contours(prob_grid: np.ndarray, bounds: dict) -> dict[str, list[list[list[float]]]]:
+    contours_dict = {}
+    for threshold, label in [(0.75, "75"), (0.50, "50"), (0.25, "25")]:
+        poly_list = []
+        if np.any(prob_grid >= threshold):
+            try:
+                # Pad to ensure contours reaching the edge are closed cleanly
+                padded = np.pad(prob_grid, 1, mode='constant', constant_values=0)
+                raw_contours = measure.find_contours(padded, threshold)
+                for contour in raw_contours:
+                    poly = []
+                    for point in contour:
+                        y, x = point[0] - 1, point[1] - 1
+                        lat, lng = grid_to_latlng(float(x), float(y), bounds)
+                        poly.append([lat, lng])
+                    if len(poly) >= 3:
+                        poly_list.append(poly)
+            except Exception:
+                pass
+        contours_dict[label] = poly_list
+    return contours_dict
+
+
 def run_ensemble(
     ignition_x: int,
     ignition_y: int,

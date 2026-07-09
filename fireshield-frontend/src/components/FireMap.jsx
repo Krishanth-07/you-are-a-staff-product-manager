@@ -339,23 +339,33 @@ export default function FireMap({
               />
             )}
             
-            {showEnsemble && ensembleData && bounds && ensembleData.probability_grid.map((row, y) => 
-              row.map((prob, x) => {
-                if (prob <= 0) return null;
-                const [lat, lng] = gridToLatLng(x, y, bounds);
-                const [lat2, lng2] = gridToLatLng(x+1, y+1, bounds);
-                return (
-                   <Rectangle 
-                     key={`${x}-${y}`} 
-                     bounds={[[lat, lng], [lat2, lng2]]} 
-                     pathOptions={{ 
-                        color: 'transparent',
-                        fillColor: '#dc2626', 
-                        fillOpacity: prob * 0.85
-                     }} 
-                   />
-                );
-              })
+            {showEnsemble && ensembleData && bounds && ensembleData.contours && (
+              <>
+                {/* 25% confidence - yellow/orange */}
+                {ensembleData.contours["25"]?.map((poly, i) => (
+                  <Polygon 
+                    key={`25-${i}`} 
+                    positions={poly} 
+                    pathOptions={{ color: '#f59e0b', fillColor: '#f59e0b', fillOpacity: 0.2, weight: 1, smoothFactor: 1 }} 
+                  />
+                ))}
+                {/* 50% confidence - orange/red */}
+                {ensembleData.contours["50"]?.map((poly, i) => (
+                  <Polygon 
+                    key={`50-${i}`} 
+                    positions={poly} 
+                    pathOptions={{ color: '#ea580c', fillColor: '#ea580c', fillOpacity: 0.4, weight: 1.5, smoothFactor: 1 }} 
+                  />
+                ))}
+                {/* 75% confidence - red */}
+                {ensembleData.contours["75"]?.map((poly, i) => (
+                  <Polygon 
+                    key={`75-${i}`} 
+                    positions={poly} 
+                    pathOptions={{ color: '#dc2626', fillColor: '#dc2626', fillOpacity: 0.6, weight: 2, smoothFactor: 1 }} 
+                  />
+                ))}
+              </>
             )}
 
             {showFirms && firmsData.map((fire, i) => (
