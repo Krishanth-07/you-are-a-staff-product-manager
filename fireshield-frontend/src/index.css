@@ -5,7 +5,13 @@
 :root {
   color: #d9e4f0;
   background: #07111d;
-  font-family: "Space Grotesk", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family:
+    "Space Grotesk",
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    sans-serif;
   color-scheme: dark;
 }
 
@@ -23,8 +29,16 @@ body {
   min-width: 320px;
   min-height: 100vh;
   background:
-    radial-gradient(circle at 18% 12%, rgba(14, 165, 233, 0.12), transparent 24%),
-    radial-gradient(circle at 84% 12%, rgba(34, 197, 94, 0.08), transparent 20%),
+    radial-gradient(
+      circle at 18% 12%,
+      rgba(14, 165, 233, 0.12),
+      transparent 24%
+    ),
+    radial-gradient(
+      circle at 84% 12%,
+      rgba(34, 197, 94, 0.08),
+      transparent 20%
+    ),
     linear-gradient(180deg, #07111d 0%, #050814 100%);
   background-attachment: fixed;
 }
@@ -53,7 +67,12 @@ input {
 
 button {
   cursor: pointer;
-  transition: transform 140ms ease, border-color 140ms ease, background 140ms ease, box-shadow 140ms ease, opacity 140ms ease;
+  transition:
+    transform 140ms ease,
+    border-color 140ms ease,
+    background 140ms ease,
+    box-shadow 140ms ease,
+    opacity 140ms ease;
 }
 
 button:hover {
@@ -66,8 +85,16 @@ button:active {
 
 .leaflet-container {
   background:
-    radial-gradient(circle at 20% 20%, rgba(34, 197, 94, 0.06), transparent 24%),
-    radial-gradient(circle at 80% 20%, rgba(14, 165, 233, 0.06), transparent 20%),
+    radial-gradient(
+      circle at 20% 20%,
+      rgba(34, 197, 94, 0.06),
+      transparent 24%
+    ),
+    radial-gradient(
+      circle at 80% 20%,
+      rgba(14, 165, 233, 0.06),
+      transparent 20%
+    ),
     #07111d;
   font-family: inherit;
 }
@@ -77,7 +104,11 @@ button:active {
 }
 
 .command-card {
-  background: linear-gradient(180deg, rgba(15, 23, 42, 0.94), rgba(7, 11, 22, 0.94));
+  background: linear-gradient(
+    180deg,
+    rgba(15, 23, 42, 0.94),
+    rgba(7, 11, 22, 0.94)
+  );
   border: 1px solid rgba(148, 163, 184, 0.12);
   border-radius: 24px;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
@@ -112,11 +143,13 @@ button:active {
 }
 
 .mono {
-  font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-family:
+    "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
 }
 
 @keyframes active-dot {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 0.65;
   }
   50% {
@@ -125,7 +158,8 @@ button:active {
 }
 
 @keyframes cell-flame {
-  0%, 100% {
+  0%,
+  100% {
     fill-opacity: 0.38;
     transform: scale(1);
   }

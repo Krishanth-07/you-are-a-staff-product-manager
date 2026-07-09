@@ -1,16 +1,19 @@
-﻿import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from "react";
 
 export default function Header() {
-  const [now, setNow] = useState(new Date())
+  const [now, setNow] = useState(new Date());
 
   useEffect(() => {
     const timer = window.setInterval(() => {
-      setNow(new Date())
-    }, 1000)
-    return () => window.clearInterval(timer)
-  }, [])
+      setNow(new Date());
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, []);
 
-  const timeLabel = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+  const timeLabel = now.toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  });
 
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200/10 bg-slate-950/90 backdrop-blur-xl">
@@ -20,9 +23,15 @@ export default function Header() {
             FS
           </div>
           <div>
-            <div className="text-[11px] uppercase tracking-[0.32em] text-slate-500">Wildfire operations console</div>
-            <h1 className="mt-1 text-xl font-semibold tracking-tight text-slate-50 sm:text-2xl">FireShield AI</h1>
-            <p className="mt-1 text-sm text-slate-400">Decision support for Nilgiris response planning</p>
+            <div className="text-[11px] uppercase tracking-[0.32em] text-slate-500">
+              Wildfire operations console
+            </div>
+            <h1 className="mt-1 text-xl font-semibold tracking-tight text-slate-50 sm:text-2xl">
+              FireShield AI
+            </h1>
+            <p className="mt-1 text-sm text-slate-400">
+              Decision support for Nilgiris response planning
+            </p>
           </div>
         </div>
 
@@ -32,5 +41,5 @@ export default function Header() {
         </div>
       </div>
     </header>
-  )
+  );
 }
