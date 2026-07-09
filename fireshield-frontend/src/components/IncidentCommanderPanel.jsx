@@ -119,8 +119,9 @@ export default function IncidentCommanderPanel({
                          <span className="text-blue-600">ETA: {item.eta_minutes} min</span>
                       )}
                     </div>
-                    <div className="text-[11px] text-gray-500 mt-0.5">
-                      Deploy from: {item.from}
+                    <div className="text-[11px] text-gray-500 mt-0.5 flex justify-between">
+                      <span>Deploy from: {item.from}</span>
+                      {item.to && <span className="font-medium text-gray-700">To: {item.to}</span>}
                     </div>
                   </div>
                 ))}

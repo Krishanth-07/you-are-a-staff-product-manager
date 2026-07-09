@@ -122,7 +122,7 @@ Incident data:
 Return a JSON response matching this exact schema:
 {{
   "evacuate": [{{"location": "<name from points_of_interest>", "time_minutes": <int>, "reason": "<string citing specific threat/distance>"}}],
-  "deploy_resources": [{{"type": "<type from resource_allocation>", "count": <int from resource_allocation>, "from": "<base from resource_allocation>", "eta_minutes": <int from resource_allocation>}}],
+  "deploy_resources": [{{"type": "<type from resource_allocation>", "count": <int from resource_allocation>, "from": "<base from resource_allocation>", "to": "<poi from resource_allocation>", "eta_minutes": <int from resource_allocation>}}],
   "road_closures": ["<string citing specific highway or road name>"],
   "priority_protect": [{{"location": "<name>", "reason": "<string citing specific distance and risk factor>"}}],
   "confidence_percent": {mean_confidence_percent},
