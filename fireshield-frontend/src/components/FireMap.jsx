@@ -8,8 +8,9 @@ import {
   useMap,
   useMapEvents,
   Polygon,
+  Rectangle,
 } from "react-leaflet";
-import { getRegionData, simulate } from "../api";
+import { getRegionData, simulate, simulateEnsemble, getActiveFires } from "../api";
 
 const DEFAULT_PARAMS = {
   ignition_x: 25,
@@ -109,6 +110,13 @@ export default function FireMap({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const [showFirms, setShowFirms] = useState(false);
+  const [firmsData, setFirmsData] = useState([]);
+  
+  const [showEnsemble, setShowEnsemble] = useState(false);
+  const [ensembleData, setEnsembleData] = useState(null);
+  const [loadingEnsemble, setLoadingEnsemble] = useState(false);
+
   const [ignitionX, setIgnitionX] = useState(DEFAULT_PARAMS.ignition_x);
   const [ignitionY, setIgnitionY] = useState(DEFAULT_PARAMS.ignition_y);
 
@@ -196,6 +204,42 @@ export default function FireMap({
     addLog?.(`Ignition relocated to: X ${gridCoord.x}, Y ${gridCoord.y}`);
   };
 
+  const handleRunEnsemble = async () => {
+    if (showEnsemble) {
+      setShowEnsemble(false);
+      return;
+    }
+    setLoadingEnsemble(true);
+    try {
+      const data = await simulateEnsemble(params);
+      setEnsembleData(data);
+      setShowEnsemble(true);
+      addLog?.(`Monte Carlo Ensemble ran with ${data.n_runs} permutations. Mean confidence: ${data.mean_confidence_percent}%`);
+    } catch (err) {
+      console.error("Ensemble error", err);
+    } finally {
+      setLoadingEnsemble(false);
+    }
+  };
+
+  const handleToggleFirms = async () => {
+    if (showFirms) {
+      setShowFirms(false);
+      return;
+    }
+    try {
+      const data = await getActiveFires();
+      if (data.error) {
+         addLog?.(`FIRMS error: ${data.error}`);
+      } else {
+         setFirmsData(data);
+         setShowFirms(true);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   return (
     <section className="command-card p-6">
       <div className="flex flex-col gap-4">
@@ -209,6 +253,23 @@ export default function FireMap({
             </p>
           </div>
           <div className="flex items-center gap-3">
+              <button
+                className={`rounded-lg border px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider shadow-sm transition-all ${showFirms ? 'bg-orange-600 text-white border-orange-600' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}
+                onClick={handleToggleFirms}
+                type="button"
+              >
+                Live Satellite Hotspots
+              </button>
+              
+              <button
+                className={`rounded-lg border px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider shadow-sm transition-all ${showEnsemble ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}
+                onClick={handleRunEnsemble}
+                type="button"
+                disabled={loadingEnsemble}
+              >
+                {loadingEnsemble ? "Running..." : "Run Confidence Analysis"}
+              </button>
+
             <label className="flex items-center gap-3 text-xs text-gray-500">
               <span className="mono shrink-0 font-semibold text-gray-700">
                 Step {step + 1} of {maxStep + 1}
@@ -247,6 +308,11 @@ export default function FireMap({
               {error}
             </div>
           )}
+          {showFirms && firmsData.length === 0 && (
+            <div className="absolute top-12 left-1/2 -translate-x-1/2 z-[1000] bg-gray-900/80 text-white px-3 py-1.5 rounded-full text-[10px] font-medium shadow-sm backdrop-blur-sm whitespace-nowrap">
+              No active satellite detections in this region as of {new Date().toLocaleTimeString()}
+            </div>
+          )}
           <MapContainer
             center={center}
             zoom={13}
@@ -260,7 +326,7 @@ export default function FireMap({
             />
             <MapEvents onMapClick={handleMapClick} />
             
-            {currentPolygon && currentPolygon.length > 0 && (
+            {currentPolygon && currentPolygon.length > 0 && !showEnsemble && (
               <Polygon
                 positions={currentPolygon}
                 pathOptions={{
@@ -272,6 +338,47 @@ export default function FireMap({
                 }}
               />
             )}
+            
+            {showEnsemble && ensembleData && bounds && ensembleData.probability_grid.map((row, y) => 
+              row.map((prob, x) => {
+                if (prob <= 0) return null;
+                const [lat, lng] = gridToLatLng(x, y, bounds);
+                const [lat2, lng2] = gridToLatLng(x+1, y+1, bounds);
+                return (
+                   <Rectangle 
+                     key={`${x}-${y}`} 
+                     bounds={[[lat, lng], [lat2, lng2]]} 
+                     pathOptions={{ 
+                        color: 'transparent',
+                        fillColor: '#dc2626', 
+                        fillOpacity: prob * 0.85
+                     }} 
+                   />
+                );
+              })
+            )}
+
+            {showFirms && firmsData.map((fire, i) => (
+              <Marker 
+                key={`firms-${i}`} 
+                position={[fire.lat, fire.lng]}
+                icon={L.divIcon({
+                  className: "",
+                  html: `<div style="width:16px;height:16px;border-radius:50%;background:${fire.confidence === 'high' ? '#dc2626' : '#f59e0b'};display:flex;align-items:center;justify-content:center;border:1.5px solid #ffffff;box-shadow:0 0 10px ${fire.confidence === 'high' ? '#dc2626' : '#f59e0b'};"></div>`,
+                  iconSize: [16, 16],
+                  iconAnchor: [8, 8]
+                })}
+              >
+                <Popup>
+                   <div className="text-xs text-gray-800">
+                     <strong>NASA FIRMS Hotspot</strong><br/>
+                     Brightness: {fire.brightness} K<br/>
+                     Confidence: {fire.confidence.toUpperCase()}<br/>
+                     Acquired: {new Date(fire.acquired_at).toLocaleString()}
+                   </div>
+                </Popup>
+              </Marker>
+            ))}
             
             <Marker icon={ignitionIcon()} position={ignitionPosition}>
               <Popup>

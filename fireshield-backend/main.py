@@ -11,6 +11,10 @@ except ImportError:  # pragma: no cover - dependency check happens in the enviro
 
 import urllib.request
 import json
+import csv
+import os
+import time
+import io
 
 if load_dotenv is not None:
     load_dotenv()
@@ -36,6 +40,8 @@ from models import (
     RegionDataResponse,
     SimulateRequest,
     SimulateResponse,
+    EnsembleRequest,
+    EnsembleResponse,
 )
 from region_data import (
     GRID_SIZE,
@@ -44,20 +50,27 @@ from region_data import (
     get_points_of_interest,
     get_bounds,
 )
-from simulation import calculate_risk_score, run_simulation
+from simulation import calculate_risk_score, run_cellular_automaton, grid_to_polygons, run_ensemble
+from resource_allocation import allocate_resources
 
 
 vegetation_map: np.ndarray | None = None
 elevation_map: np.ndarray | None = None
 points_of_interest = []
+resource_bases = []
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global vegetation_map, elevation_map, points_of_interest
+    global vegetation_map, elevation_map, points_of_interest, resource_bases
     vegetation_map = generate_vegetation_map()
     elevation_map = generate_elevation_map()
     points_of_interest = get_points_of_interest()
+    try:
+        with open("data/resource_bases.json", "r") as f:
+            resource_bases = json.load(f)
+    except Exception:
+        resource_bases = []
     yield
 
 
@@ -102,8 +115,58 @@ def get_live_weather():
                 "humidity": current.get("relative_humidity_2m", 60.0) # percentage
             }
     except Exception as e:
-        print(f"Failed to fetch live weather: {e}")
-        raise HTTPException(status_code=503, detail="Live weather service unavailable.")
+        return {"error": str(e)}
+
+# Cache for FIRMS data (dict of "data" and "timestamp")
+firms_cache = {"data": None, "timestamp": 0.0}
+
+@app.get("/api/active-fires")
+def get_active_fires():
+    global firms_cache
+    
+    # Cache for 15 minutes (900 seconds)
+    if firms_cache["data"] is not None and (time.time() - firms_cache["timestamp"] < 900):
+        return firms_cache["data"]
+
+    firms_key = os.getenv("FIRMS_MAP_KEY")
+    if not firms_key:
+        return {"error": "FIRMS_MAP_KEY is missing"}
+
+    bounds = get_bounds()
+    if not bounds:
+        return {"error": "Region bounds not available"}
+        
+    west, south, east, north = bounds["west"], bounds["south"], bounds["east"], bounds["north"]
+    # Expand slightly just in case
+    west -= 0.5
+    east += 0.5
+    south -= 0.5
+    north += 0.5
+    
+    url = f"https://firms.modaps.eosdis.gov/api/area/csv/{firms_key}/VIIRS_SNPP_NRT/{west},{south},{east},{north}/1"
+    
+    try:
+        req = urllib.request.Request(url, headers={'User-Agent': 'FireShieldHackathonApp/1.0'})
+        with urllib.request.urlopen(req, timeout=15) as response:
+            csv_data = response.read().decode("utf-8")
+            
+        reader = csv.DictReader(io.StringIO(csv_data))
+        fires = []
+        for row in reader:
+            fires.append({
+                "lat": float(row["latitude"]),
+                "lng": float(row["longitude"]),
+                "confidence": row.get("confidence", "nominal"),
+                "brightness": float(row.get("bright_ti4", 0)),
+                "acquired_at": f"{row.get('acq_date', '')}T{row.get('acq_time', '')}Z"
+            })
+            
+        firms_cache["data"] = fires
+        firms_cache["timestamp"] = time.time()
+        
+        return fires
+    except Exception as e:
+        return {"error": str(e)}
 
 
 @app.get("/region-data", response_model=RegionDataResponse)
@@ -125,7 +188,7 @@ def simulate(request: SimulateRequest) -> SimulateResponse:
 
     _validate_coordinates(request.ignition_x, request.ignition_y)
 
-    time_steps_data = run_simulation(
+    state_grids = run_cellular_automaton(
         request.ignition_x,
         request.ignition_y,
         request.wind_speed,
@@ -135,6 +198,14 @@ def simulate(request: SimulateRequest) -> SimulateResponse:
         vegetation_map,
         elevation_map,
     )
+    
+    # Convert state grids to polygons
+    bounds = get_bounds()
+    time_steps_data = []
+    for state_grid in state_grids:
+        polygons = grid_to_polygons(state_grid, bounds)
+        time_steps_data.append(polygons)
+
     final_risk_score, risk_factors = calculate_risk_score(
         vegetation_map,
         elevation_map,
@@ -145,8 +216,8 @@ def simulate(request: SimulateRequest) -> SimulateResponse:
         points_of_interest,
     )
 
-    # Approximate the area burnt based on the number of time steps and wind
-    total_cells_burnt = int((request.time_steps ** 2) * (request.wind_speed / 10 + 1) * 10)
+    # Approximate cells burnt from the final state grid
+    total_cells_burnt = int(np.sum(state_grids[-1] > 0))
 
     return SimulateResponse(
         grid_size=GRID_SIZE,
@@ -159,11 +230,71 @@ def simulate(request: SimulateRequest) -> SimulateResponse:
     )
 
 
+@app.post("/simulate-ensemble", response_model=EnsembleResponse)
+def simulate_ensemble(request: EnsembleRequest) -> EnsembleResponse:
+    if vegetation_map is None or elevation_map is None:
+        raise HTTPException(status_code=503, detail="Region data is not initialized.")
+
+    _validate_coordinates(request.ignition_x, request.ignition_y)
+
+    prob_grid = run_ensemble(
+        request.ignition_x,
+        request.ignition_y,
+        request.wind_speed,
+        request.wind_direction,
+        request.humidity,
+        request.time_steps,
+        vegetation_map,
+        elevation_map,
+        request.n_runs
+    )
+
+    # Calculate mean confidence percent (average of cells that burned at least once)
+    burned_any = prob_grid > 0
+    if np.any(burned_any):
+        mean_confidence = int(np.mean(prob_grid[burned_any]) * 100)
+    else:
+        mean_confidence = 0
+        
+    high_confidence_cells = int(np.sum(prob_grid > 0.7))
+
+    return EnsembleResponse(
+        grid_size=GRID_SIZE,
+        probability_grid=prob_grid.tolist(),
+        mean_confidence_percent=mean_confidence,
+        high_confidence_cells=high_confidence_cells,
+        n_runs=request.n_runs,
+    )
+
+
 @app.post("/incident-commander", response_model=IncidentCommanderResponse)
 def incident_commander(
     request: IncidentCommanderRequest,
 ) -> IncidentCommanderResponse:
     try:
+        import math
+        # Reconstruct enriched POIs for allocation
+        enriched_pois = []
+        for poi in request.points_of_interest:
+            px = poi.get("x", 25)
+            py = poi.get("y", 25)
+            dist_cells = math.hypot(px - request.ignition_x, py - request.ignition_y)
+            dist_meters = round(dist_cells * 160)
+            
+            if dist_meters < 800:
+                threat = "Critical"
+            elif dist_meters < 1800:
+                threat = "High"
+            else:
+                threat = "Low"
+                
+            enriched = dict(poi)
+            enriched["distance_meters"] = dist_meters
+            enriched["threat_level"] = threat
+            enriched_pois.append(enriched)
+            
+        allocation = allocate_resources(enriched_pois, resource_bases)
+        
         recommendation = get_incident_commander_recommendation(
             request.risk_score,
             request.risk_factors,
@@ -171,6 +302,8 @@ def incident_commander(
             request.points_of_interest,
             request.ignition_x,
             request.ignition_y,
+            mean_confidence_percent=75, # Fallback, ideally we'd pass this from frontend but signature assumes 75 if not provided
+            resource_allocation=allocation
         )
         return IncidentCommanderResponse(**recommendation)
     except RuntimeError as e:

@@ -20,6 +20,16 @@ export const simulate = async (params) => {
   return data
 }
 
+export const simulateEnsemble = async (params) => {
+  const { data } = await api.post('/simulate-ensemble', params)
+  return data
+}
+
+export const getActiveFires = async () => {
+  const { data } = await api.get('/api/active-fires')
+  return data
+}
+
 export const getIncidentCommander = async (params) => {
   const { data } = await api.post('/incident-commander', params)
   return data

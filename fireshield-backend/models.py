@@ -28,6 +28,18 @@ class SimulateResponse(BaseModel):
     ignition_y: int
 
 
+class EnsembleRequest(SimulateRequest):
+    n_runs: int = 40
+
+
+class EnsembleResponse(BaseModel):
+    grid_size: int
+    probability_grid: list[list[float]]
+    mean_confidence_percent: int
+    high_confidence_cells: int
+    n_runs: int
+
+
 class PointOfInterest(BaseModel):
     name: str
     type: str

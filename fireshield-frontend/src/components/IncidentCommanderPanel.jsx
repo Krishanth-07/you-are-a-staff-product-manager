@@ -45,14 +45,29 @@ export default function IncidentCommanderPanel({
             Generate response actions from current model parameters.
           </p>
         </div>
-        <button
-          className="rounded-lg bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider shadow-sm transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50"
-          disabled={!simulation || loading}
-          onClick={requestRecommendation}
-          type="button"
-        >
-          {loading ? "Analyzing..." : "Get Plan"}
-        </button>
+        <div className="flex items-center gap-2">
+          {recommendation && (
+            <button
+              className="rounded-lg border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider shadow-sm transition-colors duration-150"
+              onClick={() => {
+                const text = `Command briefing. ${recommendation.evacuate.length} locations require evacuation. ${recommendation.deploy_resources.length} resource units deployed. Estimated containment confidence is ${recommendation.confidence_percent} percent.`;
+                const utterance = new SpeechSynthesisUtterance(text);
+                window.speechSynthesis.speak(utterance);
+              }}
+              type="button"
+            >
+              Play Briefing
+            </button>
+          )}
+          <button
+            className="rounded-lg bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider shadow-sm transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={!simulation || loading}
+            onClick={requestRecommendation}
+            type="button"
+          >
+            {loading ? "Analyzing..." : "Get Plan"}
+          </button>
+        </div>
       </div>
 
       {!recommendation && !loading && !error && (
@@ -98,8 +113,11 @@ export default function IncidentCommanderPanel({
               <div className="mt-2 space-y-2.5">
                 {recommendation.deploy_resources.map((item, index) => (
                   <div key={`${item.type}-${index}`}>
-                    <div className="font-bold text-gray-900">
-                      {item.count} {item.type}
+                    <div className="font-bold text-gray-900 flex justify-between">
+                      <span>{item.count} {item.type}</span>
+                      {item.eta_minutes && (
+                         <span className="text-blue-600">ETA: {item.eta_minutes} min</span>
+                      )}
                     </div>
                     <div className="text-[11px] text-gray-500 mt-0.5">
                       Deploy from: {item.from}

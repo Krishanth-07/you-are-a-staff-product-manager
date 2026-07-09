@@ -73,6 +73,8 @@ def get_incident_commander_recommendation(
     points_of_interest: list[dict],
     ignition_x: int,
     ignition_y: int,
+    mean_confidence_percent: int = 75,
+    resource_allocation: list[dict] = None,
 ) -> dict:
     import math
     enriched_pois = []
@@ -98,8 +100,10 @@ def get_incident_commander_recommendation(
         "You are an experienced Indian disaster management incident commander responding to "
         "a forest fire in the Nilgiris Biosphere Reserve, Tamil Nadu. You must respond ONLY "
         "with valid JSON, no markdown, no explanation text outside the JSON. Be decisive and "
-        "specific - real time estimates in minutes, real resource counts, real reasons. "
+        "specific. "
         "Ground every recommendation strictly in the geographic data and threat levels provided. "
+        "The following resource assignment has already been computed by an optimization algorithm — "
+        "use these exact bases, unit counts, and ETAs in your `deploy_resources` field; do not invent different ones. "
         "Do not invent locations not present in the points_of_interest list. Avoid generic "
         "boilerplate phrases. Cite the specific distance in meters and threat level of the villages "
         "or hospitals in your reasoning fields to demonstrate real spatial awareness."
@@ -112,15 +116,16 @@ Incident data:
 - ignition_x: {ignition_x}
 - ignition_y: {ignition_y}
 - points_of_interest (enriched with distances & threat levels relative to ignition): {json.dumps(enriched_pois, indent=2)}
-- scenario_variant_id: {random.randint(1000,9999)} (use this only to vary your specific wording/resource choices creatively, not to change the underlying facts)
+- Computed resource_allocation: {json.dumps(resource_allocation or [], indent=2)}
+- Computed mean_confidence_percent (from Monte Carlo Ensemble): {mean_confidence_percent}
 
 Return a JSON response matching this exact schema:
 {{
   "evacuate": [{{"location": "<name from points_of_interest>", "time_minutes": <int>, "reason": "<string citing specific threat/distance>"}}],
-  "deploy_resources": [{{"type": "<fire engines/helicopters/forest teams/ambulances>", "count": <int>, "from": "<string>"}}],
+  "deploy_resources": [{{"type": "<type from resource_allocation>", "count": <int from resource_allocation>, "from": "<base from resource_allocation>", "eta_minutes": <int from resource_allocation>}}],
   "road_closures": ["<string citing specific highway or road name>"],
   "priority_protect": [{{"location": "<name>", "reason": "<string citing specific distance and risk factor>"}}],
-  "confidence_percent": <int 0-100>,
+  "confidence_percent": {mean_confidence_percent},
   "cascading_risks": ["<string>", "<string>"],
   "containment_estimate_percent": <int 0-100>
 }}

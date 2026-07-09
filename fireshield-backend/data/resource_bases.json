@@ -1,0 +1,42 @@
+[
+  {
+    "name": "Ooty Central Fire Station",
+    "type": "fire_station",
+    "lat": 11.41,
+    "lng": 76.69,
+    "available_units": {
+      "fire_engines": 4,
+      "forest_teams": 3
+    }
+  },
+  {
+    "name": "Kotagiri Fire Outpost",
+    "type": "fire_station",
+    "lat": 11.42,
+    "lng": 76.88,
+    "available_units": {
+      "fire_engines": 2,
+      "forest_teams": 2
+    }
+  },
+  {
+    "name": "Coonoor District Hospital",
+    "type": "hospital",
+    "lat": 11.35,
+    "lng": 76.79,
+    "available_units": {
+      "ambulances": 5
+    }
+  },
+  {
+    "name": "Mettupalayam Emergency Response",
+    "type": "fire_station",
+    "lat": 11.30,
+    "lng": 76.93,
+    "available_units": {
+      "fire_engines": 5,
+      "ambulances": 2,
+      "helicopters": 1
+    }
+  }
+]
