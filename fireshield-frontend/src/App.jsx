@@ -50,6 +50,8 @@ export default function App() {
     async function loadLiveWeather() {
       try {
         const weather = await getLiveWeather();
+        if (weather.error) throw new Error(weather.error);
+        
         setSliderParams((prev) => ({
           ...prev,
           wind_speed: Math.round(weather.wind_speed),
