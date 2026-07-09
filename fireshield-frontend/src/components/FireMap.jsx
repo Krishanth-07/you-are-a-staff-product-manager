@@ -53,15 +53,17 @@ function latLngToGrid(lat, lng, bounds) {
 
 function FitBounds({ bounds }) {
   const map = useMap();
+  const [fitted, setFitted] = useState(false);
 
   useEffect(() => {
-    if (bounds) {
+    if (bounds && !fitted) {
       map.fitBounds([
         [bounds.south, bounds.west],
         [bounds.north, bounds.east],
       ]);
+      setFitted(true);
     }
-  }, [map, bounds]);
+  }, [map, bounds, fitted]);
 
   return null;
 }
