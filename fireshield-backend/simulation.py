@@ -160,8 +160,8 @@ def run_cellular_automaton(
                             wind_mult = math.exp(dot * (wind_speed / 20.0))
                             hum_mult = max(0.1, 1.0 - (humidity / 100.0))
                             
-                            # Base probability needs to be tuned to allow spread but not explode
-                            prob = 0.3 * veg * slope_mult * wind_mult * hum_mult
+                            # Increased base probability to ensure spread at low wind speeds
+                            prob = 0.7 * veg * slope_mult * wind_mult * hum_mult
                             
                             if rng.random() < prob:
                                 new_state[ny, nx] = 1
