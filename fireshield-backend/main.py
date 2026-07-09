@@ -143,7 +143,7 @@ def get_active_fires():
     south -= 0.5
     north += 0.5
     
-    url = f"https://firms.modaps.eosdis.gov/api/area/csv/{firms_key}/VIIRS_SNPP_NRT/{west},{south},{east},{north}/1"
+    url = f"https://firms.modaps.eosdis.nasa.gov/api/area/csv/{firms_key}/VIIRS_SNPP_NRT/{west},{south},{east},{north}/1"
     
     try:
         req = urllib.request.Request(url, headers={'User-Agent': 'FireShieldHackathonApp/1.0'})
