@@ -55,9 +55,7 @@ from simulation import (
     run_ensemble,
     calculate_risk_score,
     grid_to_polygons,
-    extract_confidence_contours,
-    compute_poi_threat_timeline,
-    compute_evacuation_routes,
+    extract_confidence_contours
 )
 from resource_allocation import allocate_resources
 
@@ -227,9 +225,6 @@ def simulate(request: SimulateRequest) -> SimulateResponse:
     # Approximate cells burnt from the final state grid
     total_cells_burnt = int(np.sum(state_grids[-1] > 0))
 
-    poi_timeline = compute_poi_threat_timeline(state_grids, points_of_interest, bounds)
-    evac_routes = compute_evacuation_routes(request.ignition_x, request.ignition_y, poi_timeline, bounds)
-
     return SimulateResponse(
         grid_size=GRID_SIZE,
         time_steps_data=time_steps_data,
@@ -238,8 +233,6 @@ def simulate(request: SimulateRequest) -> SimulateResponse:
         total_cells_burnt=total_cells_burnt,
         ignition_x=request.ignition_x,
         ignition_y=request.ignition_y,
-        poi_threat_timeline=poi_timeline,
-        evacuation_routes=evac_routes,
     )
 
 
