@@ -1,21 +1,34 @@
+﻿import { useEffect, useState } from 'react'
+
 export default function Header() {
+  const [now, setNow] = useState(new Date())
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setNow(new Date())
+    }, 1000)
+    return () => window.clearInterval(timer)
+  }, [])
+
+  const timeLabel = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+
   return (
-    <header className="border-b border-slate-800 bg-[#0a0e1a]/95 px-5 py-4 shadow-2xl shadow-black/30">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-white md:text-2xl">
-            FireShield AI - Forest Fire Emergency Command Center
-          </h1>
-          <p className="mt-1 text-sm text-slate-400">Nilgiris Biosphere Reserve, Tamil Nadu</p>
-        </div>
+    <header className="sticky top-0 z-30 border-b border-slate-200/10 bg-slate-950/90 backdrop-blur-xl">
+      <div className="mx-auto flex max-w-[1600px] items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
         <div className="flex items-center gap-3">
-          <span className="relative flex h-3 w-3">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-75" />
-            <span className="relative inline-flex h-3 w-3 rounded-full bg-red-500" />
-          </span>
-          <span className="rounded border border-red-500/50 bg-red-500/15 px-3 py-1 text-xs font-bold tracking-wide text-red-200">
-            ACTIVE INCIDENT
-          </span>
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-400 to-sky-500 text-sm font-semibold text-slate-950 shadow-[0_16px_35px_rgba(14,165,233,.18)]">
+            FS
+          </div>
+          <div>
+            <div className="text-[11px] uppercase tracking-[0.32em] text-slate-500">Wildfire operations console</div>
+            <h1 className="mt-1 text-xl font-semibold tracking-tight text-slate-50 sm:text-2xl">FireShield AI</h1>
+            <p className="mt-1 text-sm text-slate-400">Decision support for Nilgiris response planning</p>
+          </div>
+        </div>
+
+        <div className="text-right">
+          <div className="text-sm font-medium text-slate-100">{timeLabel}</div>
+          <div className="mt-1 text-xs text-slate-500">Local system time</div>
         </div>
       </div>
     </header>

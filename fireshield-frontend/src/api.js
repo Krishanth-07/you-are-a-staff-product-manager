@@ -29,3 +29,12 @@ export const askAI = async (question, context) => {
   const { data } = await api.post('/ask-ai', { question, context })
   return data
 }
+
+export const generateIncidentReport = async (simulationData, incidentCommanderData, logs) => {
+  const { data } = await api.post('/incident-report', {
+    simulation_data: simulationData,
+    incident_commander_data: incidentCommanderData,
+    logs,
+  })
+  return data
+}

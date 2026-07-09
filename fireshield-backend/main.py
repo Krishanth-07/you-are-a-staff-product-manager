@@ -4,8 +4,20 @@ import numpy as np
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
+try:
+    from dotenv import load_dotenv
+except ImportError:  # pragma: no cover - dependency check happens in the environment
+    load_dotenv = None
+
+if load_dotenv is not None:
+    load_dotenv()
+    print("[dotenv] loaded environment variables from .env if present")
+else:
+    print("[dotenv] python-dotenv is not installed; skipping .env load")
+
 from ai_layer import (
     ask_ai,
+    generate_incident_report,
     generate_public_alerts,
     get_incident_commander_recommendation,
 )
@@ -16,6 +28,8 @@ from models import (
     AskAIResponse,
     IncidentCommanderRequest,
     IncidentCommanderResponse,
+    IncidentReportRequest,
+    IncidentReportResponse,
     RegionDataResponse,
     SimulateRequest,
     SimulateResponse,
@@ -151,3 +165,13 @@ def public_alert(request: AlertRequest) -> AlertResponse:
 def ask_ai_endpoint(request: AskAIRequest) -> AskAIResponse:
     answer = ask_ai(request.question, request.context)
     return AskAIResponse(answer=answer)
+
+
+@app.post("/incident-report", response_model=IncidentReportResponse)
+def incident_report(request: IncidentReportRequest) -> IncidentReportResponse:
+    report = generate_incident_report(
+        request.simulation_data,
+        request.incident_commander_data,
+        request.logs,
+    )
+    return IncidentReportResponse(**report)

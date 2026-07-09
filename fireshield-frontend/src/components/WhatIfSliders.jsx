@@ -12,7 +12,7 @@ export default function WhatIfSliders({ onChange, addLog }) {
   useEffect(() => {
     const timer = window.setTimeout(() => {
       onChange?.(values)
-      addLog?.(`What-if simulation requested: wind ${values.wind_speed} km/h, direction ${values.wind_direction}°, humidity ${values.humidity}%`)
+      addLog?.('What-if settings updated')
     }, 400)
     return () => window.clearTimeout(timer)
   }, [values, onChange, addLog])
@@ -22,28 +22,30 @@ export default function WhatIfSliders({ onChange, addLog }) {
   }
 
   return (
-    <section className="mt-4 rounded border border-slate-800 bg-slate-950/80 p-4">
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-cyan-300">What-if Controls</h2>
-      <div className="mt-4 grid gap-4 md:grid-cols-3">
+    <section className="command-card mt-4 p-4 sm:p-5">
+      <div className="flex flex-col gap-3 border-b border-slate-200/8 pb-4 md:flex-row md:items-end md:justify-between">
+        <div>
+          <div className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-200">Scenario controls</div>
+          <p className="mt-1 text-sm text-slate-400">Adjust the weather inputs that drive the spread model.</p>
+        </div>
+        <div className="flex flex-wrap gap-2 text-xs text-slate-400">
+          <span className="rounded-full border border-slate-200/10 bg-slate-950/55 px-3 py-1">Wind {values.wind_speed} km/h</span>
+          <span className="rounded-full border border-slate-200/10 bg-slate-950/55 px-3 py-1">Direction {values.wind_direction}°</span>
+          <span className="rounded-full border border-slate-200/10 bg-slate-950/55 px-3 py-1">Humidity {values.humidity}%</span>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-3">
         <label className="text-sm text-slate-300">
-          <div className="mb-2 flex justify-between">
-            <span>Wind Speed</span>
-            <strong className="text-white">{values.wind_speed} km/h</strong>
-          </div>
-          <input className="w-full accent-orange-500" max="100" min="0" onChange={(event) => updateValue('wind_speed', event.target.value)} type="range" value={values.wind_speed} />
+          <span className="mb-2 block text-slate-100">Wind speed</span>
+          <input className="w-full accent-cyan-400" max="100" min="0" onChange={(event) => updateValue('wind_speed', event.target.value)} type="range" value={values.wind_speed} />
         </label>
         <label className="text-sm text-slate-300">
-          <div className="mb-2 flex justify-between">
-            <span>Wind Direction</span>
-            <strong className="text-white">{values.wind_direction}°</strong>
-          </div>
+          <span className="mb-2 block text-slate-100">Wind direction</span>
           <input className="w-full accent-cyan-400" max="360" min="0" onChange={(event) => updateValue('wind_direction', event.target.value)} type="range" value={values.wind_direction} />
         </label>
         <label className="text-sm text-slate-300">
-          <div className="mb-2 flex justify-between">
-            <span>Humidity</span>
-            <strong className="text-white">{values.humidity}%</strong>
-          </div>
+          <span className="mb-2 block text-slate-100">Humidity</span>
           <input className="w-full accent-cyan-400" max="100" min="0" onChange={(event) => updateValue('humidity', event.target.value)} type="range" value={values.humidity} />
         </label>
       </div>

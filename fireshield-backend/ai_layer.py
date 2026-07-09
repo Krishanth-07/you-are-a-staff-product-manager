@@ -13,13 +13,16 @@ MAX_TOKENS = 1500
 
 def call_gemini(system_prompt: str, user_message: str) -> str:
     if genai is None:
-        return "Gemini API error: google-genai package is not installed."
+        print("[Gemini] failure: google-genai package is not installed")
+        raise RuntimeError("Gemini is required: google-genai package is not installed.")
 
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
-        return "Gemini API error: GEMINI_API_KEY environment variable is not set."
+        print("[Gemini] failure: GEMINI_API_KEY environment variable is not set")
+        raise RuntimeError("Gemini is required: GEMINI_API_KEY environment variable is not set.")
 
     try:
+        print(f"[Gemini] request model={GEMINI_MODEL}")
         client = genai.Client(api_key=api_key)
         response = client.models.generate_content(
             model=GEMINI_MODEL,
@@ -29,9 +32,12 @@ def call_gemini(system_prompt: str, user_message: str) -> str:
                 "max_output_tokens": MAX_TOKENS,
             },
         )
-        return (response.text or "").strip()
+        text = (response.text or "").strip()
+        print(f"[Gemini] success chars={len(text)}")
+        return text
     except Exception as exc:
-        return f"Gemini API error: {exc}"
+        print(f"[Gemini] failure: {exc}")
+        raise RuntimeError(f"Gemini API error: {exc}") from exc
 
 
 # Backward-compatible alias for any local callers from the earlier Claude version.
@@ -39,11 +45,7 @@ def call_claude(system_prompt: str, user_message: str) -> str:
     return call_gemini(system_prompt, user_message)
 
 
-def _parse_json_with_retry(
-    system_prompt: str,
-    user_message: str,
-    fallback_response: dict,
-) -> dict:
+def _parse_json_with_retry(system_prompt: str, user_message: str) -> dict:
     response_text = call_gemini(system_prompt, user_message)
     try:
         return json.loads(response_text)
@@ -55,49 +57,8 @@ def _parse_json_with_retry(
         retry_text = call_gemini(system_prompt, retry_message)
         try:
             return json.loads(retry_text)
-        except json.JSONDecodeError:
-            return fallback_response
-
-
-def _poi_names(points_of_interest: list[dict]) -> list[str]:
-    return [str(poi.get("name")) for poi in points_of_interest if poi.get("name")]
-
-
-def _incident_commander_fallback(points_of_interest: list[dict]) -> dict:
-    names = _poi_names(points_of_interest)
-    primary_location = names[0] if names else "nearest listed point of interest"
-    second_location = names[1] if len(names) > 1 else primary_location
-
-    return {
-        "evacuate": [
-            {
-                "location": primary_location,
-                "time_minutes": 45,
-                "reason": "Fire risk is elevated near this listed point of interest; begin precautionary evacuation.",
-            }
-        ],
-        "deploy_resources": [
-            {"type": "fire engines", "count": 3, "from": "nearest district fire station"},
-            {"type": "forest teams", "count": 4, "from": "Nilgiris Forest Department field units"},
-            {"type": "ambulances", "count": 2, "from": "nearest government hospital"},
-        ],
-        "road_closures": [
-            "Close forest approach roads within 5 km of the ignition point.",
-            "Keep one main evacuation route open for outbound civilian movement.",
-        ],
-        "priority_protect": [
-            {
-                "location": second_location,
-                "reason": "Maintain emergency access and protect critical public services.",
-            }
-        ],
-        "confidence_percent": 70,
-        "cascading_risks": [
-            "Smoke may reduce road visibility near the incident zone.",
-            "Wind-driven spread may threaten nearby listed assets before containment improves.",
-        ],
-        "containment_estimate_percent": 55,
-    }
+        except json.JSONDecodeError as exc:
+            raise RuntimeError("Gemini returned invalid JSON twice.") from exc
 
 
 def get_incident_commander_recommendation(
@@ -136,38 +97,7 @@ Return a JSON response matching this exact schema:
   "containment_estimate_percent": <int 0-100>
 }}
 """
-    return _parse_json_with_retry(
-        system_prompt,
-        user_message,
-        _incident_commander_fallback(points_of_interest),
-    )
-
-
-def _alerts_fallback(
-    evacuate_locations: list[str],
-    safe_route: str,
-    shelter_name: str,
-    time_minutes: int,
-) -> dict:
-    locations = ", ".join(evacuate_locations) if evacuate_locations else "affected areas"
-    short_location = evacuate_locations[0] if evacuate_locations else "affected area"
-    return {
-        "sms": {
-            "english": f"Evacuate {short_location} in {time_minutes} min. Use safe official route. Move to assigned shelter. Follow police.",
-            "tamil": f"{short_location} பகுதி மக்கள் {time_minutes} நிமிடத்தில் வெளியேறவும். அதிகாரிகள் கூறும் பாதையை பயன்படுத்தவும்.",
-            "hindi": f"{short_location} से {time_minutes} मिनट में निकलें। अधिकारी बताए सुरक्षित मार्ग का उपयोग करें।",
-        },
-        "whatsapp": {
-            "english": f"Emergency alert: residents in {locations} should evacuate within {time_minutes} minutes. Use {safe_route} and proceed to {shelter_name}. Follow police and forest officials.",
-            "tamil": f"அவசர எச்சரிக்கை: {locations} பகுதி மக்கள் {time_minutes} நிமிடங்களில் வெளியேறவும். {safe_route} வழியாக {shelter_name} செல்லவும்.",
-            "hindi": f"आपात सूचना: {locations} के निवासी {time_minutes} मिनट में निकलें। {safe_route} से {shelter_name} जाएं।",
-        },
-        "press_release": {
-            "english": f"Authorities have advised residents in {locations} to evacuate within {time_minutes} minutes due to wildfire risk. The safe route is {safe_route}, and the designated shelter is {shelter_name}.",
-            "tamil": f"காட்டுத்தீ அபாயம் காரணமாக {locations} பகுதி மக்கள் {time_minutes} நிமிடங்களில் வெளியேறுமாறு அதிகாரிகள் அறிவுறுத்தியுள்ளனர். பாதுகாப்பான பாதை {safe_route}; முகாம் {shelter_name}.",
-            "hindi": f"वनाग्नि जोखिम के कारण {locations} के निवासियों को {time_minutes} मिनट में खाली करने की सलाह दी गई है। सुरक्षित मार्ग {safe_route} है और आश्रय {shelter_name} है।",
-        },
-    }
+    return _parse_json_with_retry(system_prompt, user_message)
 
 
 def generate_public_alerts(
@@ -194,11 +124,7 @@ Return alerts in this exact JSON schema, for EACH of English, Tamil, and Hindi:
   "press_release": {{"english": "<one paragraph>", "tamil": "<...>", "hindi": "<...>"}}
 }}
 """
-    return _parse_json_with_retry(
-        system_prompt,
-        user_message,
-        _alerts_fallback(evacuate_locations, safe_route, shelter_name, time_minutes),
-    )
+    return _parse_json_with_retry(system_prompt, user_message)
 
 
 def ask_ai(question: str, context: dict) -> str:
@@ -215,12 +141,34 @@ Context:
 Question:
 {question}
 """
-    answer = call_gemini(system_prompt, user_message)
-    if answer.startswith("Gemini API error:"):
-        return (
-            "AI service is unavailable, but the provided context indicates the incident "
-            "should be handled using the latest risk score, affected cell count, and "
-            "incident commander recommendations. Provide GEMINI_API_KEY to enable "
-            "Gemini-powered answers."
-        )
-    return answer
+    return call_gemini(system_prompt, user_message)
+
+
+def generate_incident_report(
+    simulation_data: dict,
+    incident_commander_data: dict,
+    logs: list[str],
+) -> dict:
+    system_prompt = (
+        "You are drafting an official incident report for Tamil Nadu Forest Department "
+        "and District Emergency Operations Centre records. Write in formal government "
+        "incident-report style. Respond ONLY with valid JSON."
+    )
+    user_message = f"""
+Incident source data:
+- simulation_data: {json.dumps(simulation_data, indent=2)}
+- incident_commander_data: {json.dumps(incident_commander_data, indent=2)}
+- logs: {json.dumps(logs, indent=2)}
+
+Return a JSON response matching this exact schema:
+{{
+  "incident_id": "<e.g. FIRE-2026-NLG-001>",
+  "summary": "<2-3 sentences>",
+  "timeline_narrative": "<formatted from logs>",
+  "actions_taken": ["<string>"],
+  "resources_deployed": "<summary>",
+  "population_impact": "<summary>",
+  "recommendation": "<forward-looking string>"
+}}
+"""
+    return _parse_json_with_retry(system_prompt, user_message)

@@ -85,3 +85,19 @@ class AskAIRequest(BaseModel):
 
 class AskAIResponse(BaseModel):
     answer: str
+
+
+class IncidentReportRequest(BaseModel):
+    simulation_data: dict
+    incident_commander_data: dict
+    logs: list[str]
+
+
+class IncidentReportResponse(BaseModel):
+    incident_id: str
+    summary: str
+    timeline_narrative: str
+    actions_taken: list[str]
+    resources_deployed: str
+    population_impact: str
+    recommendation: str
