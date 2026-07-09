@@ -1,12 +1,17 @@
 import axios from 'axios'
 
 const api = axios.create({
-  baseURL: 'http://127.0.0.1:8000',
+  baseURL: 'http://127.0.0.1:8002',
   timeout: 60000,
 })
 
 export const getRegionData = async () => {
   const { data } = await api.get('/region-data')
+  return data
+}
+
+export const getLiveWeather = async () => {
+  const { data } = await api.get('/api/weather')
   return data
 }
 

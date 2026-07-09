@@ -1,0 +1,200 @@
+[
+  {
+    "name": "Aravenu",
+    "type": "village",
+    "lat": 11.408855,
+    "lng": 76.8740187
+  },
+  {
+    "name": "Tuttapallam",
+    "type": "village",
+    "lat": 11.3917044,
+    "lng": 76.8876107
+  },
+  {
+    "name": "Karbetta",
+    "type": "village",
+    "lat": 11.4285565,
+    "lng": 76.8733762
+  },
+  {
+    "name": "Kotagiri Medical Fellowship Hospital",
+    "type": "hospital",
+    "lat": 11.4348162,
+    "lng": 76.859762
+  },
+  {
+    "name": "Kaggula",
+    "type": "village",
+    "lat": 11.456127,
+    "lng": 76.8965437
+  },
+  {
+    "name": "Kotagiri",
+    "type": "village",
+    "lat": 11.4230431,
+    "lng": 76.8658211
+  },
+  {
+    "name": "Kannerimukku",
+    "type": "village",
+    "lat": 11.4394895,
+    "lng": 76.856913
+  },
+  {
+    "name": "Dhimbatty",
+    "type": "village",
+    "lat": 11.4401731,
+    "lng": 76.8509745
+  },
+  {
+    "name": "Thanthanad",
+    "type": "village",
+    "lat": 11.432833,
+    "lng": 76.8462968
+  },
+  {
+    "name": "Kambatty",
+    "type": "village",
+    "lat": 11.4525813,
+    "lng": 76.8550944
+  },
+  {
+    "name": "Holy Family Mission Hospital",
+    "type": "hospital",
+    "lat": 11.442748,
+    "lng": 76.8703468
+  },
+  {
+    "name": "Government Hospital, Kothagiri",
+    "type": "hospital",
+    "lat": 11.4212782,
+    "lng": 76.8612964
+  },
+  {
+    "name": "SV Clinic",
+    "type": "hospital",
+    "lat": 11.4081809,
+    "lng": 76.8732902
+  },
+  {
+    "name": "Sri Sai Clinic",
+    "type": "hospital",
+    "lat": 11.4217466,
+    "lng": 76.8621327
+  },
+  {
+    "name": "Sudar Clinic",
+    "type": "hospital",
+    "lat": 11.4082974,
+    "lng": 76.8732954
+  },
+  {
+    "name": "Vinayak Clinic",
+    "type": "hospital",
+    "lat": 11.4263692,
+    "lng": 76.8658619
+  },
+  {
+    "name": "Sivakumar Hospital",
+    "type": "hospital",
+    "lat": 11.4213103,
+    "lng": 76.8606476
+  },
+  {
+    "name": "Dr. Nanjundan Clinic",
+    "type": "hospital",
+    "lat": 11.4236287,
+    "lng": 76.8681637
+  },
+  {
+    "name": "HF Hospital",
+    "type": "hospital",
+    "lat": 11.4213865,
+    "lng": 76.8641399
+  },
+  {
+    "name": "Banagudi",
+    "type": "village",
+    "lat": 11.3918338,
+    "lng": 76.8652828
+  },
+  {
+    "name": "Anil Kadu",
+    "type": "village",
+    "lat": 11.4336246,
+    "lng": 76.8874583
+  },
+  {
+    "name": "Udhagamandalam - Kotagiri - Mettupalayam - Sathy - Gobi - Erode Road",
+    "type": "highway",
+    "lat": 11.3533164,
+    "lng": 76.9188987
+  },
+  {
+    "name": "Udhagamandalam - Kotagiri - Mettupalayam - Sathy - Gobi - Erode Road",
+    "type": "highway",
+    "lat": 11.4228219,
+    "lng": 76.8751861
+  },
+  {
+    "name": "Udhagamandalam - Kotagiri - Mettupalayam - Sathy - Gobi - Erode Road",
+    "type": "highway",
+    "lat": 11.4203542,
+    "lng": 76.8768664
+  },
+  {
+    "name": "Udhagamandalam - Kotagiri - Mettupalayam - Sathy - Gobi - Erode Road",
+    "type": "highway",
+    "lat": 11.3932377,
+    "lng": 76.8849977
+  },
+  {
+    "name": "Udhagamandalam - Kotagiri - Mettupalayam - Sathy - Gobi - Erode Road",
+    "type": "highway",
+    "lat": 11.4068759,
+    "lng": 76.8791676
+  },
+  {
+    "name": "Kotagiri - Kodanadu View Point Road",
+    "type": "highway",
+    "lat": 11.4749549,
+    "lng": 76.8941354
+  },
+  {
+    "name": "Sholurmattam Road",
+    "type": "highway",
+    "lat": 11.4465504,
+    "lng": 76.9218947
+  },
+  {
+    "name": "Udhagamandalam - Kotagiri - Mettupalayam - Sathy - Gobi - Erode Road",
+    "type": "highway",
+    "lat": 11.4229104,
+    "lng": 76.8661656
+  },
+  {
+    "name": "Udhagamandalam - Kotagiri - Mettupalayam - Sathy - Gobi - Erode Road",
+    "type": "highway",
+    "lat": 11.4179257,
+    "lng": 76.8366308
+  },
+  {
+    "name": "Udhagamandalam - Kotagiri - Mettupalayam - Sathy - Gobi - Erode Road",
+    "type": "highway",
+    "lat": 11.424062,
+    "lng": 76.8697045
+  },
+  {
+    "name": "Udhagamandalam - Kotagiri - Mettupalayam - Sathy - Gobi - Erode Road",
+    "type": "highway",
+    "lat": 11.4251824,
+    "lng": 76.873362
+  },
+  {
+    "name": "Kotagiri BSNL Cell Tower",
+    "type": "cell_tower",
+    "lat": 11.4255,
+    "lng": 76.8612
+  }
+]

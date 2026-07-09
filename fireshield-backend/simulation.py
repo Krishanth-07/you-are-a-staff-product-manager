@@ -1,51 +1,46 @@
 import math
-import random
-
 import numpy as np
-
-from models import CellState, PointOfInterest, RiskFactors
+from models import PointOfInterest, RiskFactors
 from region_data import GRID_SIZE
 
+def grid_to_latlng(x: int, y: int, bounds: dict) -> tuple[float, float]:
+    lat = bounds["south"] + (y / 49.0) * (bounds["north"] - bounds["south"])
+    lng = bounds["west"] + (x / 49.0) * (bounds["east"] - bounds["west"])
+    return lat, lng
 
-def calculate_ignition_probability(
-    cell_veg_density: float,
-    cell_elevation: float,
-    neighbor_elevation: float,
-    wind_speed: float,
-    wind_direction: float,
-    cell_dx: int,
-    cell_dy: int,
-    humidity: float,
-) -> float:
-    base_prob = cell_veg_density * 0.4
+def latlng_to_grid(lat: float, lng: float, bounds: dict) -> tuple[int, int]:
+    y = int(round((lat - bounds["south"]) / (bounds["north"] - bounds["south"]) * 49.0))
+    x = int(round((lng - bounds["west"]) / (bounds["east"] - bounds["west"]) * 49.0))
+    x = max(0, min(49, x))
+    y = max(0, min(49, y))
+    return x, y
 
-    cell_angle = math.degrees(math.atan2(cell_dy, cell_dx))
-    cell_angle = (cell_angle + 360) % 360
-    wind_direction = wind_direction % 360
-    angle_diff = abs((wind_direction - cell_angle + 180) % 360 - 180)
-
-    if angle_diff <= 45:
-        wind_factor = (wind_speed / 100) * 0.4
-    else:
-        wind_factor = (wind_speed / 100) * 0.05
-
-    if cell_elevation > neighbor_elevation:
-        elevation_factor = 0.15
-    else:
-        elevation_factor = 0.02
-
-    humidity_factor = (humidity / 100) * 0.3
-    probability = base_prob + wind_factor + elevation_factor - humidity_factor
-    return max(0.0, min(1.0, probability))
-
-
-def _snapshot_grid(grid: list[list[str]]) -> list[CellState]:
-    snapshot = []
-    for y, row in enumerate(grid):
-        for x, status in enumerate(row):
-            snapshot.append(CellState(x=x, y=y, status=status))
-    return snapshot
-
+def generate_ellipse_polygon(
+    center_lat: float,
+    center_lng: float,
+    major_axis: float,
+    minor_axis: float,
+    angle_deg: float,
+    num_points: int = 32
+) -> list[list[float]]:
+    angle_rad = math.radians(angle_deg)
+    cos_a = math.cos(angle_rad)
+    sin_a = math.sin(angle_rad)
+    
+    polygon = []
+    for i in range(num_points):
+        t = 2 * math.pi * i / num_points
+        # unrotated ellipse points (Y is major axis)
+        x = minor_axis * math.cos(t)
+        y = major_axis * math.sin(t)
+        
+        # rotated
+        rot_x = x * cos_a - y * sin_a
+        rot_y = x * sin_a + y * cos_a
+        
+        polygon.append([center_lat + rot_y, center_lng + rot_x])
+        
+    return polygon
 
 def run_simulation(
     ignition_x: int,
@@ -56,63 +51,46 @@ def run_simulation(
     time_steps: int,
     vegetation_map: np.ndarray,
     elevation_map: np.ndarray,
-) -> list[list[CellState]]:
-    random.seed(44)
-    grid = [["unburnt" for _ in range(GRID_SIZE)] for _ in range(GRID_SIZE)]
-    grid[ignition_y][ignition_x] = "burning"
-
+) -> list[list[list[float]]]:
+    from region_data import get_bounds
+    bounds = get_bounds()
+    
+    start_lat, start_lng = grid_to_latlng(ignition_x, ignition_y, bounds)
     snapshots = []
-    neighbor_offsets = [
-        (-1, -1),
-        (0, -1),
-        (1, -1),
-        (-1, 0),
-        (1, 0),
-        (-1, 1),
-        (0, 1),
-        (1, 1),
-    ]
-
-    for _ in range(time_steps):
-        burning_cells = [
-            (x, y)
-            for y in range(GRID_SIZE)
-            for x in range(GRID_SIZE)
-            if grid[y][x] == "burning"
-        ]
-        newly_ignited = set()
-
-        for x, y in burning_cells:
-            for dx, dy in neighbor_offsets:
-                nx = x + dx
-                ny = y + dy
-                if not (0 <= nx < GRID_SIZE and 0 <= ny < GRID_SIZE):
-                    continue
-                if grid[ny][nx] != "unburnt":
-                    continue
-
-                probability = calculate_ignition_probability(
-                    float(vegetation_map[ny][nx]),
-                    float(elevation_map[ny][nx]),
-                    float(elevation_map[y][x]),
-                    wind_speed,
-                    wind_direction,
-                    dx,
-                    dy,
-                    humidity,
-                )
-                if random.random() < probability:
-                    newly_ignited.add((nx, ny))
-
-        for x, y in burning_cells:
-            grid[y][x] = "burnt"
-        for x, y in newly_ignited:
-            grid[y][x] = "burning"
-
-        snapshots.append(_snapshot_grid(grid))
-
+    
+    # Vegetation at ignition affects overall scale
+    veg_density = float(vegetation_map[ignition_y][ignition_x])
+    
+    # Base growth per step in degrees (roughly 0.0015 degrees ~ 160 meters)
+    base_growth = 0.0015 * (0.5 + veg_density) * (1.0 - (humidity / 200.0))
+    
+    for step in range(1, time_steps + 1):
+        # Fire drifts with wind
+        drift_dist = step * base_growth * (wind_speed / 40.0)
+        
+        # Meteorological wind direction: degrees clockwise from North. 
+        # Wind blowing FROM 90 (East) means it blows TOWARDS 270 (West).
+        blow_rad = math.radians((wind_direction + 180) % 360)
+        
+        # math.sin(blow_rad) -> dx (East), math.cos(blow_rad) -> dy (North)
+        center_lng = start_lng + drift_dist * math.sin(blow_rad)
+        center_lat = start_lat + drift_dist * math.cos(blow_rad)
+        
+        major_axis = step * base_growth * (1.0 + (wind_speed / 30.0))
+        minor_axis = step * base_growth * 1.0
+        
+        # Align major axis with wind direction
+        polygon = generate_ellipse_polygon(
+            center_lat, 
+            center_lng, 
+            major_axis, 
+            minor_axis, 
+            -wind_direction, 
+            num_points=32
+        )
+        snapshots.append(polygon)
+        
     return snapshots
-
 
 def calculate_risk_score(
     vegetation_map: np.ndarray,

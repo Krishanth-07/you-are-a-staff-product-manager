@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 export default function Header() {
   const [now, setNow] = useState(new Date());
@@ -16,28 +16,28 @@ export default function Header() {
   });
 
   return (
-    <header className="sticky top-0 z-30 border-b border-slate-200/10 bg-slate-950/90 backdrop-blur-xl">
-      <div className="mx-auto flex max-w-[1600px] items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
+    <header className="sticky top-0 z-30 border-b border-gray-200 bg-white shadow-sm">
+      <div className="mx-auto flex max-w-[1600px] items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
         <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-400 to-sky-500 text-sm font-semibold text-slate-950 shadow-[0_16px_35px_rgba(14,165,233,.18)]">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-600 text-sm font-bold text-white shadow-sm">
             FS
           </div>
           <div>
-            <div className="text-[11px] uppercase tracking-[0.32em] text-slate-500">
-              Wildfire operations console
+            <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-gray-400">
+              Wildfire Operations Console
             </div>
-            <h1 className="mt-1 text-xl font-semibold tracking-tight text-slate-50 sm:text-2xl">
+            <h1 className="text-lg font-bold tracking-tight text-gray-900 leading-tight">
               FireShield AI
             </h1>
-            <p className="mt-1 text-sm text-slate-400">
+            <p className="text-xs text-gray-500">
               Decision support for Nilgiris response planning
             </p>
           </div>
         </div>
 
         <div className="text-right">
-          <div className="text-sm font-medium text-slate-100">{timeLabel}</div>
-          <div className="mt-1 text-xs text-slate-500">Local system time</div>
+          <div className="text-sm font-semibold text-gray-900">{timeLabel}</div>
+          <div className="text-[10px] text-gray-400">Local system time</div>
         </div>
       </div>
     </header>

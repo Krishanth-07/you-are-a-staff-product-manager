@@ -22,7 +22,7 @@ Start the backend first:
 
 ```powershell
 Set-Location .\fireshield-backend
-python -m uvicorn main:app --reload --port 8000
+python -m uvicorn main:app --reload --port 8001
 ```
 
 Then start the frontend in a second terminal:

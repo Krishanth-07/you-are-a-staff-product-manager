@@ -10,12 +10,6 @@ class SimulateRequest(BaseModel):
     time_steps: int = 6
 
 
-class CellState(BaseModel):
-    x: int
-    y: int
-    status: str
-
-
 class RiskFactors(BaseModel):
     wind_speed: float
     humidity: float
@@ -26,10 +20,12 @@ class RiskFactors(BaseModel):
 
 class SimulateResponse(BaseModel):
     grid_size: int
-    time_steps_data: list[list[CellState]]
+    time_steps_data: list[list[list[float]]]  # List of polygons, each polygon is a list of [lat, lng]
     final_risk_score: int
     risk_factors: RiskFactors
     total_cells_burnt: int
+    ignition_x: int
+    ignition_y: int
 
 
 class PointOfInterest(BaseModel):
@@ -37,13 +33,14 @@ class PointOfInterest(BaseModel):
     type: str
     x: int
     y: int
+    lat: float | None = None
+    lng: float | None = None
 
 
 class RegionDataResponse(BaseModel):
     grid_size: int
-    vegetation_map: list[list[float]]
-    elevation_map: list[list[float]]
     points_of_interest: list[PointOfInterest]
+    bounds: dict | None = None
 
 
 class IncidentCommanderRequest(BaseModel):

@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 import L from "leaflet";
 import {
-  ImageOverlay,
   MapContainer,
   Marker,
   Popup,
+  TileLayer,
   useMap,
+  useMapEvents,
+  Polygon,
 } from "react-leaflet";
-import { Cross, Home, Navigation, Radio, Route } from "lucide-react";
 import { getRegionData, simulate } from "../api";
 
 const DEFAULT_PARAMS = {
@@ -20,224 +20,80 @@ const DEFAULT_PARAMS = {
   time_steps: 6,
 };
 
-const MAP_BOUNDS = [
-  [0, 0],
-  [50, 50],
-];
-
-const TERRAIN_CANVAS_SIZE = 1000;
-
-const POI_STYLE = {
-  village: { Icon: Home, color: "#06b6d4" },
-  hospital: { Icon: Cross, color: "#ef4444" },
-  highway: { Icon: Route, color: "#64748b" },
-  cell_tower: { Icon: Radio, color: "#64748b" },
+// Inline SVG strings for Leaflet markers (no react-dom/server dependency)
+const POI_ICONS_SVG = {
+  village: `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
+  hospital: `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5v14"/></svg>`,
+  highway: `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="3"/><circle cx="18" cy="5" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/></svg>`,
+  cell_tower: `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg>`,
 };
 
-function lerp(a, b, t) {
-  return Math.round(a + (b - a) * t);
+const POI_COLORS = {
+  village: "#2563eb",
+  hospital: "#dc2626",
+  highway: "#78716c",
+  cell_tower: "#7c3aed",
+};
+
+function gridToLatLng(x, y, bounds) {
+  const lat = bounds.south + (y / 49.0) * (bounds.north - bounds.south);
+  const lng = bounds.west + (x / 49.0) * (bounds.east - bounds.west);
+  return [lat, lng];
 }
 
-function lerpColor(start, end, t) {
-  return [
-    lerp(start[0], end[0], t),
-    lerp(start[1], end[1], t),
-    lerp(start[2], end[2], t),
-  ];
+function latLngToGrid(lat, lng, bounds) {
+  const y = Math.round(((lat - bounds.south) / (bounds.north - bounds.south)) * 49.0);
+  const x = Math.round(((lng - bounds.west) / (bounds.east - bounds.west)) * 49.0);
+  return {
+    x: Math.max(0, Math.min(49, x)),
+    y: Math.max(0, Math.min(49, y)),
+  };
 }
 
-function colorToCss([red, green, blue], alpha = 1) {
-  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
-}
-
-function buildTerrainUrl(regionData) {
-  const canvas = document.createElement("canvas");
-  canvas.width = TERRAIN_CANVAS_SIZE;
-  canvas.height = TERRAIN_CANVAS_SIZE;
-  const context = canvas.getContext("2d");
-
-  if (!context) return "";
-
-  const cellSize = TERRAIN_CANVAS_SIZE / regionData.grid_size;
-
-  for (let y = 0; y < regionData.grid_size; y += 1) {
-    for (let x = 0; x < regionData.grid_size; x += 1) {
-      const vegetation = regionData.vegetation_map[y][x];
-      const elevation = regionData.elevation_map[y][x];
-      const canopyMix = Math.max(
-        0,
-        Math.min(1, vegetation * 0.72 + (1 - elevation) * 0.28),
-      );
-      const ridgeMix = Math.max(
-        0,
-        Math.min(1, elevation * 0.85 + vegetation * 0.15),
-      );
-      const lowland = lerpColor([18, 62, 42], [31, 92, 58], canopyMix);
-      const ridge = lerpColor([84, 110, 62], [132, 108, 76], ridgeMix);
-      const gradient = context.createLinearGradient(
-        x * cellSize,
-        y * cellSize,
-        (x + 1) * cellSize,
-        (y + 1) * cellSize,
-      );
-      gradient.addColorStop(0, colorToCss(lowland));
-      gradient.addColorStop(1, colorToCss(ridge));
-      context.fillStyle = gradient;
-      context.fillRect(x * cellSize, y * cellSize, cellSize + 1, cellSize + 1);
-    }
-  }
-
-  for (let y = 0; y < regionData.grid_size; y += 1) {
-    for (let x = 0; x < regionData.grid_size; x += 1) {
-      const elevation = regionData.elevation_map[y][x];
-      const left = regionData.elevation_map[y][Math.max(0, x - 1)];
-      const right =
-        regionData.elevation_map[y][Math.min(regionData.grid_size - 1, x + 1)];
-      const up = regionData.elevation_map[Math.max(0, y - 1)][x];
-      const down =
-        regionData.elevation_map[Math.min(regionData.grid_size - 1, y + 1)][x];
-      const slope = (right - left + (down - up)) * 0.55;
-      const shade = Math.max(
-        -0.18,
-        Math.min(0.18, slope - (elevation - 0.5) * 0.04),
-      );
-
-      context.fillStyle =
-        shade > 0
-          ? `rgba(255,255,255,${shade})`
-          : `rgba(0,0,0,${Math.abs(shade)})`;
-      context.fillRect(x * cellSize, y * cellSize, cellSize + 1, cellSize + 1);
-    }
-  }
-
-  context.globalAlpha = 0.14;
-  for (let y = 0; y < regionData.grid_size; y += 1) {
-    for (let x = 0; x < regionData.grid_size; x += 1) {
-      const seed = Math.sin((x + 1) * 12.9898 + (y + 1) * 78.233) * 43758.5453;
-      const noise = seed - Math.floor(seed);
-      if (noise < 0.82) continue;
-      context.fillStyle =
-        noise > 0.93 ? "rgba(255, 255, 255, 0.22)" : "rgba(12, 74, 110, 0.16)";
-      const size = cellSize * (0.12 + noise * 0.22);
-      context.beginPath();
-      context.arc(
-        x * cellSize + cellSize * 0.55,
-        y * cellSize + cellSize * 0.45,
-        size,
-        0,
-        Math.PI * 2,
-      );
-      context.fill();
-    }
-  }
-
-  return canvas.toDataURL("image/png");
-}
-
-function buildFireUrl(regionData, simulation, step) {
-  const canvas = document.createElement("canvas");
-  canvas.width = TERRAIN_CANVAS_SIZE;
-  canvas.height = TERRAIN_CANVAS_SIZE;
-  const context = canvas.getContext("2d");
-
-  if (!context || !simulation?.time_steps_data?.length) return "";
-
-  const cellSize = TERRAIN_CANVAS_SIZE / regionData.grid_size;
-  const cells =
-    simulation.time_steps_data[
-      Math.min(step, simulation.time_steps_data.length - 1)
-    ] || [];
-  const statusByKey = new Map(
-    cells.map((cell) => [`${cell.x}:${cell.y}`, cell.status]),
-  );
-
-  for (let y = 0; y < regionData.grid_size; y += 1) {
-    for (let x = 0; x < regionData.grid_size; x += 1) {
-      const status = statusByKey.get(`${x}:${y}`);
-      if (status === "burning") {
-        const centerX = x * cellSize + cellSize / 2;
-        const centerY = y * cellSize + cellSize / 2;
-        const gradient = context.createRadialGradient(
-          centerX,
-          centerY,
-          cellSize * 0.12,
-          centerX,
-          centerY,
-          cellSize * 0.9,
-        );
-        gradient.addColorStop(0, "rgba(255, 237, 213, 0.95)");
-        gradient.addColorStop(0.2, "rgba(249, 115, 22, 0.88)");
-        gradient.addColorStop(0.55, "rgba(220, 38, 38, 0.72)");
-        gradient.addColorStop(1, "rgba(220, 38, 38, 0)");
-        context.fillStyle = gradient;
-        context.fillRect(
-          x * cellSize - cellSize * 0.2,
-          y * cellSize - cellSize * 0.2,
-          cellSize * 1.4,
-          cellSize * 1.4,
-        );
-      } else if (status === "burnt") {
-        context.fillStyle = "rgba(17, 24, 39, 0.78)";
-        context.fillRect(
-          x * cellSize,
-          y * cellSize,
-          cellSize + 1,
-          cellSize + 1,
-        );
-      }
-    }
-  }
-
-  return canvas.toDataURL("image/png");
-}
-
-function TerrainOverlay({ terrainUrl, fireUrl }) {
-  if (!terrainUrl) return null;
-
-  return (
-    <>
-      <ImageOverlay bounds={MAP_BOUNDS} opacity={1} url={terrainUrl} />
-      {fireUrl && (
-        <ImageOverlay bounds={MAP_BOUNDS} opacity={0.92} url={fireUrl} />
-      )}
-    </>
-  );
-}
-
-function FitBounds() {
+function FitBounds({ bounds }) {
   const map = useMap();
 
   useEffect(() => {
-    map.fitBounds(MAP_BOUNDS);
-  }, [map]);
+    if (bounds) {
+      map.fitBounds([
+        [bounds.south, bounds.west],
+        [bounds.north, bounds.east],
+      ]);
+    }
+  }, [map, bounds]);
 
   return null;
 }
 
+function MapEvents({ onMapClick }) {
+  useMapEvents({
+    click(e) {
+      onMapClick(e.latlng);
+    },
+  });
+  return null;
+}
+
 function poiIcon(type) {
-  const style = POI_STYLE[type] || { Icon: Radio, color: "#64748b" };
-  const iconMarkup = renderToStaticMarkup(
-    <style.Icon color="white" size={15} strokeWidth={2.25} />,
-  );
+  const color = POI_COLORS[type] || "#78716c";
+  const iconMarkup = POI_ICONS_SVG[type] || "";
 
   return L.divIcon({
     className: "",
-    html: `<div style="width:30px;height:30px;border-radius:999px;background:${style.color};display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.85);box-shadow:0 0 0 6px color-mix(in srgb, ${style.color} 16%, transparent)">${iconMarkup}</div>`,
-    iconSize: [28, 28],
-    iconAnchor: [14, 14],
+    html: `<div style="width:26px;height:26px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;border:1.5px solid #ffffff;box-shadow:0 2px 8px rgba(0,0,0,0.15);">${iconMarkup}</div>`,
+    iconSize: [26, 26],
+    iconAnchor: [13, 13],
   });
 }
 
 function ignitionIcon() {
-  const iconMarkup = renderToStaticMarkup(
-    <Navigation color="white" size={14} strokeWidth={2.5} />,
-  );
+  const iconMarkup = `<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="transform: rotate(45deg);"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>`;
 
   return L.divIcon({
     className: "",
-    html: `<div style="width:34px;height:34px;border-radius:999px;background:linear-gradient(180deg,#f97316,#dc2626);display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.9);box-shadow:0 0 0 8px rgba(249,115,22,.18),0 0 24px rgba(249,115,22,.45)">${iconMarkup}</div>`,
-    iconSize: [34, 34],
-    iconAnchor: [17, 17],
+    html: `<div style="width:26px;height:26px;border-radius:50%;background:#ef4444;display:flex;align-items:center;justify-content:center;border:1.5px solid #ffffff;box-shadow: 0 2px 8px rgba(0,0,0,0.25);">${iconMarkup}</div>`,
+    iconSize: [26, 26],
+    iconAnchor: [13, 13],
   });
 }
 
@@ -253,9 +109,17 @@ export default function FireMap({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const [ignitionX, setIgnitionX] = useState(DEFAULT_PARAMS.ignition_x);
+  const [ignitionY, setIgnitionY] = useState(DEFAULT_PARAMS.ignition_y);
+
   const params = useMemo(
-    () => ({ ...DEFAULT_PARAMS, ...(externalParams || {}) }),
-    [externalParams],
+    () => ({
+      ...DEFAULT_PARAMS,
+      ...(externalParams || {}),
+      ignition_x: ignitionX,
+      ignition_y: ignitionY,
+    }),
+    [externalParams, ignitionX, ignitionY],
   );
 
   useEffect(() => {
@@ -308,50 +172,49 @@ export default function FireMap({
     0,
     (simulationData?.time_steps_data?.length || 1) - 1,
   );
-  const currentCells =
+  const currentPolygon =
     simulationData?.time_steps_data?.[Math.min(step, maxStep)] || [];
-  const affectedCells = currentCells.filter(
-    (cell) => cell.status === "burning" || cell.status === "burnt",
-  ).length;
-  const ignitionPosition = [params.ignition_y + 0.5, params.ignition_x + 0.5];
-  const terrainUrl = useMemo(
-    () => (regionData ? buildTerrainUrl(regionData) : ""),
-    [regionData],
-  );
-  const fireUrl = useMemo(
-    () =>
-      regionData && simulationData
-        ? buildFireUrl(regionData, simulationData, step)
-        : "",
-    [regionData, simulationData, step],
-  );
+
+  const bounds = regionData?.bounds;
+  const center = useMemo(() => {
+    if (bounds) {
+      return [(bounds.south + bounds.north) / 2, (bounds.west + bounds.east) / 2];
+    }
+    return [11.4227, 76.8631];
+  }, [bounds]);
+
+  const ignitionPosition = useMemo(() => {
+    if (!bounds) return center;
+    return gridToLatLng(ignitionX, ignitionY, bounds);
+  }, [bounds, ignitionX, ignitionY, center]);
+
+  const handleMapClick = (latlng) => {
+    if (!bounds) return;
+    const gridCoord = latLngToGrid(latlng.lat, latlng.lng, bounds);
+    setIgnitionX(gridCoord.x);
+    setIgnitionY(gridCoord.y);
+    addLog?.(`Ignition relocated to: X ${gridCoord.x}, Y ${gridCoord.y}`);
+  };
 
   return (
-    <section className="command-card overflow-hidden p-4 sm:p-5">
+    <section className="command-card p-6">
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-cyan-300">
-              Live Fire Map
+            <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-blue-600">
+              Live Fire Map (Kotagiri Region)
             </h2>
-            <p className="mt-2 text-sm text-slate-400">
-              Area affected: {affectedCells} cells (~{affectedCells * 4} ha)
+            <p className="mt-1 text-xs text-gray-500 font-medium">
+              Area affected: ~{simulationData?.total_cells_burnt || 0} m²
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <button
-              className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-cyan-400/15"
-              onClick={() => setPlaying((value) => !value)}
-              type="button"
-            >
-              {playing ? "Pause" : "Play"}
-            </button>
-            <label className="flex items-center gap-3 text-xs text-slate-400">
-              <span className="mono shrink-0 text-slate-100">
-                Step {step + 1}/{maxStep + 1}
+            <label className="flex items-center gap-3 text-xs text-gray-500">
+              <span className="mono shrink-0 font-semibold text-gray-700">
+                Step {step + 1} of {maxStep + 1}
               </span>
               <input
-                className="w-40 accent-cyan-400"
+                className="w-32 accent-blue-600 cursor-pointer"
                 max={maxStep}
                 min="0"
                 onChange={(event) => setStep(Number(event.target.value))}
@@ -359,72 +222,98 @@ export default function FireMap({
                 value={step}
               />
             </label>
+            <button
+              className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 shadow-sm hover:bg-gray-50 active:bg-gray-100 transition-colors duration-150"
+              onClick={() => setPlaying((value) => !value)}
+              type="button"
+            >
+              {playing ? "Pause" : "Play Simulation"}
+            </button>
           </div>
         </div>
 
-        <div className="relative h-[66vh] min-h-125 overflow-hidden rounded-[28px] border border-white/8 bg-slate-950">
-          <div className="absolute right-4 top-4 z-20 text-[11px] text-slate-300">
-            {params.wind_direction}° · {params.wind_speed} km/h
+        <div className="relative h-[66vh] min-h-125 overflow-hidden rounded-xl border border-gray-200 bg-gray-50 shadow-inner">
+          <div className="absolute right-3 top-3 z-[1000] flex items-center gap-1.5 rounded-full border border-gray-200 bg-white/95 px-2.5 py-1 text-[10px] font-semibold text-gray-600 shadow-sm backdrop-blur-sm">
+            <span style={{ display: 'inline-block', transform: `rotate(${params.wind_direction}deg)` }}>↑</span>
+            <span>{params.wind_speed} km/h · {params.wind_direction}°</span>
           </div>
           {loading && (
-            <div className="absolute inset-0 z-10 grid place-items-center bg-slate-950/90 text-slate-300">
+            <div className="absolute inset-0 z-[1000] grid place-items-center bg-white/80 text-xs font-medium text-gray-500">
               Loading command map...
             </div>
           )}
           {error && (
-            <div className="absolute inset-0 z-10 grid place-items-center bg-slate-950 text-red-300">
+            <div className="absolute inset-0 z-[1000] grid place-items-center bg-white text-xs font-semibold text-red-500">
               {error}
             </div>
           )}
           <MapContainer
-            bounds={MAP_BOUNDS}
+            center={center}
+            zoom={13}
             className="h-full w-full"
-            crs={L.CRS.Simple}
-            maxBounds={[
-              [-5, -5],
-              [55, 55],
-            ]}
-            maxZoom={4}
-            minZoom={-2}
-            zoom={1}
             zoomControl
           >
-            <FitBounds />
-            <TerrainOverlay fireUrl={fireUrl} terrainUrl={terrainUrl} />
+            {bounds && <FitBounds bounds={bounds} />}
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+            />
+            <MapEvents onMapClick={handleMapClick} />
+            
+            {currentPolygon && currentPolygon.length > 0 && (
+              <Polygon
+                positions={currentPolygon}
+                pathOptions={{
+                  color: "#ef4444",
+                  fillColor: "#ef4444",
+                  fillOpacity: 0.5,
+                  weight: 2,
+                  className: "fire-pulse-polygon",
+                }}
+              />
+            )}
+            
             <Marker icon={ignitionIcon()} position={ignitionPosition}>
               <Popup>
-                <strong>Ignition point</strong>
-                <br />X {params.ignition_x}, Y {params.ignition_y}
+                <div className="text-xs text-gray-800">
+                  <strong>Ignition Point</strong>
+                  <br />
+                  Grid Coordinates: X {ignitionX}, Y {ignitionY}
+                  <br />
+                  Latitude: {ignitionPosition[0].toFixed(5)}
+                  <br />
+                  Longitude: {ignitionPosition[1].toFixed(5)}
+                </div>
               </Popup>
             </Marker>
+            
             {regionData?.points_of_interest?.map((poi) => (
               <Marker
                 icon={poiIcon(poi.type)}
                 key={poi.name}
-                position={[poi.y + 0.5, poi.x + 0.5]}
+                position={[poi.lat, poi.lng]}
               >
                 <Popup>
-                  <strong>{poi.name}</strong>
-                  <br />
-                  {poi.type}
+                  <div className="text-xs text-gray-800">
+                    <strong>{poi.name}</strong>
+                    <br />
+                    Type: {poi.type.toUpperCase()}
+                    <br />
+                    Grid: X {poi.x}, Y {poi.y}
+                  </div>
                 </Popup>
               </Marker>
             ))}
           </MapContainer>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400">
-          <span className="flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-full bg-[#365c3d]" />
-            Terrain
+        <div className="flex flex-wrap items-center justify-center gap-5 text-xs text-gray-500 border-t border-gray-100 pt-3">
+          <span className="flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-[#ef4444]" />
+            Actively Burning Area
           </span>
-          <span className="flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-full bg-[#f97316]" />
-            Fire
-          </span>
-          <span className="flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-full bg-[#1a1210]" />
-            Burnt
+          <span className="flex items-center gap-1.5 text-blue-600 font-medium">
+            Carto Voyager Tiles
           </span>
         </div>
       </div>
