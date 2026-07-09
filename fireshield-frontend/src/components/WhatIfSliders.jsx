@@ -1,13 +1,16 @@
 import { useEffect, useState } from "react";
-
-const PRESETS = [
-  { name: "Extreme Gale", wind_speed: 65, wind_direction: 120, humidity: 12 },
-  { name: "Moderate Dry", wind_speed: 25, wind_direction: 90, humidity: 35 },
-  { name: "Monsoon Wet", wind_speed: 10, wind_direction: 45, humidity: 82 },
-];
+import { getHistoricalPresets } from "../api";
 
 export default function WhatIfSliders({ values: externalValues, onChange, addLog, usingLiveWeather, onUseLiveWeather }) {
   const [values, setValues] = useState(externalValues);
+  const [presets, setPresets] = useState([]);
+  const [activePreset, setActivePreset] = useState(null);
+
+  useEffect(() => {
+    getHistoricalPresets()
+      .then((data) => setPresets(data.presets))
+      .catch((err) => console.error("Failed to fetch presets:", err));
+  }, []);
 
   // Sync with external updates (presets, initialization)
   useEffect(() => {
@@ -33,6 +36,7 @@ export default function WhatIfSliders({ values: externalValues, onChange, addLog
 
   const updateValue = (key, val) => {
     setValues((current) => ({ ...current, [key]: Number(val) }));
+    setActivePreset(null);
   };
 
   const applyPreset = (preset) => {
@@ -43,7 +47,8 @@ export default function WhatIfSliders({ values: externalValues, onChange, addLog
     };
     setValues(nextVal);
     onChange?.(nextVal); // update immediately on preset click
-    addLog?.(`Preset applied: ${preset.name}`);
+    setActivePreset(preset);
+    addLog?.(`Preset applied: ${preset.label}`);
   };
 
   return (
@@ -54,6 +59,8 @@ export default function WhatIfSliders({ values: externalValues, onChange, addLog
             Scenario Controls
             {usingLiveWeather ? (
               <span className="rounded bg-green-100 px-1.5 py-0.5 text-[9px] font-bold text-green-700 tracking-wider">LIVE</span>
+            ) : activePreset ? (
+              <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-700 tracking-wider">PRESET: {activePreset.label}</span>
             ) : (
               <span className="rounded bg-gray-200 px-1.5 py-0.5 text-[9px] font-bold text-gray-600 tracking-wider">MANUAL</span>
             )}
@@ -64,24 +71,37 @@ export default function WhatIfSliders({ values: externalValues, onChange, addLog
         </div>
         <div className="flex flex-wrap gap-2">
           <button
-            onClick={onUseLiveWeather}
+            onClick={() => {
+              onUseLiveWeather();
+              setActivePreset(null);
+            }}
             className="rounded-lg border border-green-200 bg-green-50 px-2.5 py-1 text-[10px] font-bold text-green-700 hover:bg-green-100 transition-all shadow-sm"
             type="button"
           >
             Use Live Weather
           </button>
-          {PRESETS.map((preset) => (
+          {presets.map((preset) => (
             <button
-              key={preset.name}
+              key={preset.id}
               onClick={() => applyPreset(preset)}
-              className="rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-[10px] font-bold text-gray-600 hover:bg-gray-50 hover:text-gray-900 active:bg-gray-100 transition-all shadow-sm"
+              className={`rounded-lg border px-2.5 py-1 text-[10px] font-bold transition-all shadow-sm ${
+                activePreset?.id === preset.id
+                  ? "bg-blue-50 border-blue-200 text-blue-700"
+                  : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-gray-900 active:bg-gray-100"
+              }`}
               type="button"
             >
-              {preset.name}
+              {preset.label}
             </button>
           ))}
         </div>
       </div>
+
+      {activePreset && (
+        <div className="mt-3 rounded bg-amber-50 px-3 py-2 text-[10px] text-amber-800 border border-amber-200">
+           <div className="font-semibold">{activePreset.description}</div>
+        </div>
+      )}
 
       <div className="mt-5 grid gap-5 lg:grid-cols-3">
         <label className="text-xs text-gray-600 font-medium">

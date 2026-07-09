@@ -1,12 +1,17 @@
 import axios from 'axios'
 
 const api = axios.create({
-  baseURL: 'http://127.0.0.1:8002',
+  baseURL: 'http://127.0.0.1:8001',
   timeout: 60000,
 })
 
 export const getRegionData = async () => {
   const { data } = await api.get('/region-data')
+  return data
+}
+
+export const getHistoricalPresets = async () => {
+  const { data } = await api.get('/historical-presets')
   return data
 }
 

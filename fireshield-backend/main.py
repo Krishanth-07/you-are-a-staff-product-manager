@@ -42,6 +42,7 @@ from models import (
     SimulateResponse,
     EnsembleRequest,
     EnsembleResponse,
+    HistoricalPresetsResponse,
 )
 from region_data import (
     GRID_SIZE,
@@ -49,6 +50,7 @@ from region_data import (
     generate_vegetation_map,
     get_points_of_interest,
     get_bounds,
+    get_historical_presets,
 )
 from simulation import (
     run_cellular_automaton,
@@ -200,6 +202,11 @@ def get_region_data() -> RegionDataResponse:
         points_of_interest=points_of_interest,
         bounds=get_bounds(),
     )
+
+
+@app.get("/historical-presets", response_model=HistoricalPresetsResponse)
+def historical_presets_endpoint() -> HistoricalPresetsResponse:
+    return HistoricalPresetsResponse(presets=get_historical_presets())
 
 
 @app.post("/simulate", response_model=SimulateResponse)

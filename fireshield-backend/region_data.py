@@ -102,3 +102,31 @@ def get_points_of_interest() -> list[PointOfInterest]:
         PointOfInterest(name="NH-181 Highway", type="highway", x=25, y=15, lat=11.415, lng=76.85),
         PointOfInterest(name="BSNL Tower - Kotagiri", type="cell_tower", x=32, y=18, lat=11.422, lng=76.862),
     ]
+
+PRESETS = [
+    {
+        "id": "dry_season_kotagiri",
+        "label": "Dry Season Fire Risk — Kotagiri Ridge (Feb–Apr pattern)",
+        "description": "Reconstructed from typical dry-season fire-weather conditions reported for the Nilgiris during peak fire season (February to April), when low humidity and high winds combine with dry scrub vegetation.",
+        "ignition_x": 25,
+        "ignition_y": 25,
+        "wind_speed": 28,
+        "wind_direction": 95,
+        "humidity": 18,
+        "time_steps": 6
+    },
+    {
+        "id": "monsoon_shoulder",
+        "label": "Shoulder Season — Reduced Risk Baseline",
+        "description": "Typical late-monsoon conditions with higher humidity, used as a low-risk comparison baseline.",
+        "ignition_x": 25,
+        "ignition_y": 25,
+        "wind_speed": 12,
+        "wind_direction": 200,
+        "humidity": 55,
+        "time_steps": 6
+    }
+]
+
+def get_historical_presets():
+    return PRESETS

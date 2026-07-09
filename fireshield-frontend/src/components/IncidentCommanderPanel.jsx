@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ShieldAlert } from "lucide-react";
+import { ShieldAlert, AlertTriangle } from "lucide-react";
 import { getIncidentCommander } from "../api";
 
 export default function IncidentCommanderPanel({
@@ -123,6 +123,39 @@ export default function IncidentCommanderPanel({
               </div>
             </div>
           </div>
+
+          {/* Cascading Risks */}
+          {recommendation.cascading_risks && recommendation.cascading_risks.length > 0 && (
+            <div className="border-l-4 border-amber-500 bg-white p-4 rounded-r-lg border border-y-gray-200 border-r-gray-200 shadow-sm mb-4">
+              <div className="flex items-center gap-2 mb-3">
+                <AlertTriangle className="text-amber-500" size={16} />
+                <div className="font-bold uppercase tracking-wider text-amber-600 text-[12px]">
+                  Cascading Risk
+                </div>
+              </div>
+              <div className="space-y-3">
+                {recommendation.cascading_risks.map((item, idx) => {
+                  // Handle both old string format and new dict format gracefully
+                  const isDict = typeof item === "object" && item !== null;
+                  const riskText = isDict ? item.risk : item;
+                  const impactText = isDict ? item.impact : null;
+
+                  return (
+                    <div key={idx} className="bg-amber-50/50 p-3 rounded border border-amber-100">
+                      <div className="font-bold text-gray-900 text-[12px] leading-snug">
+                        {riskText}
+                      </div>
+                      {impactText && (
+                        <div className="text-[11px] text-gray-600 mt-1">
+                          {impactText}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           <div className="grid gap-4 md:grid-cols-2">
             {/* Evacuation Section */}

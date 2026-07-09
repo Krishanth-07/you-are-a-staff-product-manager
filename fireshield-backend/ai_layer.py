@@ -108,6 +108,10 @@ def get_incident_commander_recommendation(
         "Do not invent locations not present in the points_of_interest list. Avoid generic "
         "boilerplate phrases. Cite the specific distance in meters and threat level of the villages "
         "or hospitals in your reasoning fields to demonstrate real spatial awareness. "
+        "For cascading_risks, reference SPECIFIC named assets from the points_of_interest list where relevant "
+        "(e.g., a specific named cell tower, hospital, or road) rather than generic statements. Each cascading risk "
+        "should name a concrete consequence: what fails, why, and what it affects downstream. Limit to the 2 most "
+        "severe and specific cascading risks, not a generic list."
     )
     
     if ensemble_confidence is not None:
@@ -134,7 +138,9 @@ Return a JSON response matching this exact schema:
   "road_closures": ["<string citing specific highway or road name>"],
   "priority_protect": [{{"location": "<name>", "reason": "<string citing specific distance and risk factor>"}}],
   "confidence_percent": {ensemble_confidence if ensemble_confidence is not None else "<int 0-100>"},
-  "cascading_risks": ["<string>", "<string>"],
+  "cascading_risks": [
+    {{"risk": "<specific failure, e.g. 'Kotagiri BSNL Cell Tower may lose power if the fire crosses Club Road'>", "impact": "<specific downstream consequence, e.g. 'would cut emergency radio contact for field teams in a 3km radius'>"}}
+  ],
   "containment_estimate_percent": <int 0-100>
 }}
 """

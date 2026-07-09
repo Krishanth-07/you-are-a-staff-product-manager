@@ -74,7 +74,7 @@ class IncidentCommanderResponse(BaseModel):
     road_closures: list[str]
     priority_protect: list[dict]
     confidence_percent: int
-    cascading_risks: list[str]
+    cascading_risks: list[dict]
     containment_estimate_percent: int
 
 
@@ -112,5 +112,19 @@ class IncidentReportResponse(BaseModel):
     timeline_narrative: str
     actions_taken: list[str]
     resources_deployed: str
-    population_impact: str
     recommendation: str
+
+class HistoricalPreset(BaseModel):
+    id: str
+    label: str
+    description: str
+    ignition_x: int
+    ignition_y: int
+    wind_speed: float
+    wind_direction: float
+    humidity: float
+    time_steps: int
+
+class HistoricalPresetsResponse(BaseModel):
+    presets: list[HistoricalPreset]
+
