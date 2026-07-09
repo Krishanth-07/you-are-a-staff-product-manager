@@ -20,7 +20,7 @@ class RiskFactors(BaseModel):
 
 class SimulateResponse(BaseModel):
     grid_size: int
-    time_steps_data: list[list[list[float]]]  # List of polygons, each polygon is a list of [lat, lng]
+    time_steps_data: list[list[list[list[float]]]]  # List of time steps -> List of polygons -> List of points -> [lat, lng]
     final_risk_score: int
     risk_factors: RiskFactors
     total_cells_burnt: int

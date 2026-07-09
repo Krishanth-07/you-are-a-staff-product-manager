@@ -5,8 +5,8 @@ from models import PointOfInterest, RiskFactors
 from region_data import GRID_SIZE
 
 def grid_to_latlng(x: float, y: float, bounds: dict) -> tuple[float, float]:
-    lat = bounds["south"] + (y / 49.0) * (bounds["north"] - bounds["south"])
-    lng = bounds["west"] + (x / 49.0) * (bounds["east"] - bounds["west"])
+    lat = float(bounds["south"] + (y / 49.0) * (bounds["north"] - bounds["south"]))
+    lng = float(bounds["west"] + (x / 49.0) * (bounds["east"] - bounds["west"]))
     return lat, lng
 
 def latlng_to_grid(lat: float, lng: float, bounds: dict) -> tuple[int, int]:
